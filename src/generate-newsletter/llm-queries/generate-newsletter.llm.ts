@@ -181,22 +181,22 @@ Output Format & Requirements:
 5. Detailed Content Writing Guidelines (Importance-Based Length Control):
    **ABSOLUTE RULE: The writing length limits below are MAXIMUM constraints. DO NOT EXCEED these limits under any circumstances.**
 
-   - **Tier 1 (9-10 points) - Full Detail Allowed:**
+   - **Full Detail Allowed: 9-10 points**
      - Key Facts: 1-2 sentences in **bold** with source link [original title](URL).
      - Related Targets & Scope: Bullet points for different target groups.
      - Important Dates & Procedures: Deadlines, methods, required documents by step.
      - Related Facts: Budget/scale/participants/scope as factual data.
      - Use tables when comparing multiple items.
 
-   - **Tier 2 (6-8 points) - ABSOLUTE MAXIMUM 3 SENTENCES:**
+   - **ABSOLUTE MAXIMUM 3 SENTENCES: 6-8 points**
      - Format: ONE sentence with **bold** key fact + [original title](URL) link. OPTIONALLY add ONE more sentence with critical detail (deadline/budget/target). NEVER EXCEED 3 SENTENCES TOTAL.
      - DO NOT write bullet points, DO NOT write multiple paragraphs, DO NOT add subsections.
 
-   - **Tier 3 (1-5 points) - ABSOLUTE MAXIMUM 1 SENTENCE:**
+   - **ABSOLUTE MAXIMUM 1 SENTENCE: 1-5 points**
      - Format: ONE single sentence with core fact + [original title](URL) link. PERIOD. NO ADDITIONAL SENTENCES.
      - Multiple low-priority items can be grouped into a single bullet list.
 
-   **VIOLATION WARNING: If you write more than the maximum sentences allowed for Tier 2 or Tier 3, the output will be rejected and you must regenerate.**
+   **VIOLATION WARNING: If you write more than the maximum sentences allowed, the output will be rejected and you must regenerate.**
 
    - **Structured Lists (Permits/Reports/Notices):** Create tables listing every item in individual rows without abbreviation, regardless of importance score.
    - Use professional but friendly tone that's easy to understand. (Ex: Use "is notable" instead of "is", "is recommended" instead of "must", "needs to" etc.)
