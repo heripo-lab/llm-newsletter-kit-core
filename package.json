@@ -2,7 +2,7 @@
   "name": "@llm-newsletter-kit/core",
   "private": false,
   "type": "module",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "An extensible framework to automate your entire newsletter workflow. Handles data collection, LLM-based content analysis, and email generation, letting you focus on your unique domain logic.",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
