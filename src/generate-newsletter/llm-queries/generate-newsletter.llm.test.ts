@@ -1,5 +1,6 @@
-import GenerateNewsletter from './generate-newsletter.llm';
 import { generateText } from 'ai';
+
+import GenerateNewsletter from './generate-newsletter.llm';
 
 const longTitle = 'This is a sufficiently long newsletter title for testing';
 
@@ -109,17 +110,20 @@ describe('GenerateNewsletter.execute', () => {
     expect(callArg.prompt).toContain('**Tags:** AI, Policy');
     expect(callArg.prompt).toContain('**Tags:** Cloud, Event');
     // Image Analysis appears only for the first post
-    const imageAnalysisMatches = callArg.prompt.match(/\*\*Image Analysis:\*\*/g) ?? [];
+    const imageAnalysisMatches =
+      callArg.prompt.match(/\*\*Image Analysis:\*\*/g) ?? [];
     expect(imageAnalysisMatches.length).toBe(1);
 
     // schema: should parse returned shape
-    expect(() => callArg.output.schema.parse({
-      title: longTitle,
-      content: 'content',
-      isWrittenInOutputLanguage: true,
-      copyrightVerified: true,
-      factAccuracy: true,
-    })).not.toThrow();
+    expect(() =>
+      callArg.output.schema.parse({
+        title: longTitle,
+        content: 'content',
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: true,
+        factAccuracy: true,
+      }),
+    ).not.toThrow();
 
     // result should only include title and content (picked)
     expect(result).toEqual({ title: longTitle, content: 'Body markdown' });

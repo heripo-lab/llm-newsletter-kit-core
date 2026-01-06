@@ -132,7 +132,9 @@ describe('GenerateNewsletter', () => {
   });
 
   test('logs result.created and sends preview when newsletter created', async () => {
-    (Runnables as any).__setSequenceInvoke(async () => ({ newsletterId: 'ID-123' }));
+    (Runnables as any).__setSequenceInvoke(async () => ({
+      newsletterId: 'ID-123',
+    }));
 
     const newsletter = {
       title: 'LLM Newsletter #42',
@@ -177,7 +179,9 @@ describe('GenerateNewsletter', () => {
     expect(events).toContain('generate.preview.sent');
 
     // preview.sent contains metadata
-    const previewLog = infoCalls.find((m: any) => m.event === 'generate.preview.sent');
+    const previewLog = infoCalls.find(
+      (m: any) => m.event === 'generate.preview.sent',
+    );
     expect(previewLog.data.newsletterId).toBe('ID-123');
     expect(previewLog.data.to).toBe('reviewer@example.com');
 
@@ -187,7 +191,9 @@ describe('GenerateNewsletter', () => {
   });
 
   test('logs result.skipped and skips preview when no newsletter created', async () => {
-    (Runnables as any).__setSequenceInvoke(async () => ({ newsletterId: null }));
+    (Runnables as any).__setSequenceInvoke(async () => ({
+      newsletterId: null,
+    }));
 
     const emailService = { send: vi.fn() };
     const logger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() };
@@ -210,13 +216,19 @@ describe('GenerateNewsletter', () => {
     expect(emailService.send).not.toHaveBeenCalled();
 
     const infoCalls = (logger.info as any).mock.calls.map((c: any[]) => c[0]);
-    expect(infoCalls.some((m: any) => m.event === 'generate.result.skipped')).toBe(true);
-    const previewSkip = infoCalls.find((m: any) => m.event === 'generate.preview.skip');
+    expect(
+      infoCalls.some((m: any) => m.event === 'generate.result.skipped'),
+    ).toBe(true);
+    const previewSkip = infoCalls.find(
+      (m: any) => m.event === 'generate.preview.skip',
+    );
     expect(previewSkip.data.reason).toBe('noNewsletterCreated');
   });
 
   test('logs preview.error and raw error when email sending fails', async () => {
-    (Runnables as any).__setSequenceInvoke(async () => ({ newsletterId: 'ID-ERR' }));
+    (Runnables as any).__setSequenceInvoke(async () => ({
+      newsletterId: 'ID-ERR',
+    }));
 
     const newsletter = {
       title: 'Issue Err',
@@ -247,14 +259,20 @@ describe('GenerateNewsletter', () => {
     expect(emailService.send).toHaveBeenCalledTimes(1);
 
     const errorCalls = (logger.error as any).mock.calls.map((c: any[]) => c[0]);
-    const hasStructured = errorCalls.some((m: any) => m && m.event === 'generate.preview.error');
-    const hasRaw = errorCalls.some((m: any) => m instanceof Error || (m && m.message === 'smtp down'));
+    const hasStructured = errorCalls.some(
+      (m: any) => m && m.event === 'generate.preview.error',
+    );
+    const hasRaw = errorCalls.some(
+      (m: any) => m instanceof Error || (m && m.message === 'smtp down'),
+    );
     expect(hasStructured).toBe(true);
     expect(hasRaw).toBe(true);
   });
 
   test('does not attempt preview when not configured', async () => {
-    (Runnables as any).__setSequenceInvoke(async () => ({ newsletterId: 'ID-NO-PREVIEW' }));
+    (Runnables as any).__setSequenceInvoke(async () => ({
+      newsletterId: 'ID-NO-PREVIEW',
+    }));
 
     const logger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() };
 
@@ -268,6 +286,10 @@ describe('GenerateNewsletter', () => {
     expect(events).toContain('generate.result.created');
     expect(events).not.toContain('generate.preview.sent');
 
-    expect((logger.debug as any).mock.calls.map((c: any[]) => c[0]).some((m: any) => m.event && m.event.startsWith('generate.preview'))).toBe(false);
+    expect(
+      (logger.debug as any).mock.calls
+        .map((c: any[]) => c[0])
+        .some((m: any) => m.event && m.event.startsWith('generate.preview')),
+    ).toBe(false);
   });
 });

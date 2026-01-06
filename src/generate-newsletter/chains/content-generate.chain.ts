@@ -1,15 +1,15 @@
-import juice from "juice";
-import markdownToHtml from "~/utils/markdown-to-html";
 import type { ArticleForGenerateContent } from '../models/article';
 import type { ContentGenerateProvider } from '../models/interfaces';
 import type { RequiredHtmlTemplate } from '../models/template';
 
 import { RunnablePassthrough } from '@langchain/core/runnables';
 import { pick } from 'es-toolkit';
+import juice from 'juice';
 
 import { LoggingExecutor } from '~/logging/logging-executor';
 import type { DateService } from '~/models/interfaces';
 import type { Newsletter } from '~/models/newsletter';
+import markdownToHtml from '~/utils/markdown-to-html';
 
 import GenerateNewsletter from '../llm-queries/generate-newsletter.llm';
 import { Chain, type ChainConfig } from './chain';

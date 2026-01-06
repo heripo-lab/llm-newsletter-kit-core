@@ -52,7 +52,9 @@ describe('ClassifyTags', () => {
     expect(() =>
       callArg.output.schema.parse({ tag1: 'a', tag2: 'b', tag3: 'c' }),
     ).not.toThrow();
-    expect(() => callArg.output.schema.parse({ tag1: 'a', tag2: 'b' })).toThrow();
+    expect(() =>
+      callArg.output.schema.parse({ tag1: 'a', tag2: 'b' }),
+    ).toThrow();
 
     // system prompt should include expert field and output language
     expect(callArg.system).toContain('AI');

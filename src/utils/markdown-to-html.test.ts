@@ -1,6 +1,7 @@
 import DOMPurifyFactory from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { marked } from 'marked';
+
 import markdownToHtml from './markdown-to-html';
 
 vi.mock('marked');
@@ -16,8 +17,12 @@ describe('markdownToHtml', () => {
   };
 
   beforeEach(() => {
-    vi.mocked(JSDOM).mockReturnValue({ window: mockWindow } as unknown as JSDOM);
-    vi.mocked(DOMPurifyFactory).mockReturnValue(mockPurify as unknown as ReturnType<typeof DOMPurifyFactory>);
+    vi.mocked(JSDOM).mockReturnValue({
+      window: mockWindow,
+    } as unknown as JSDOM);
+    vi.mocked(DOMPurifyFactory).mockReturnValue(
+      mockPurify as unknown as ReturnType<typeof DOMPurifyFactory>,
+    );
   });
 
   test('should convert markdown to HTML and add target="_blank" to anchors', () => {
@@ -34,7 +39,9 @@ describe('markdownToHtml', () => {
     expect(JSDOM).toHaveBeenCalledWith('');
     expect(DOMPurifyFactory).toHaveBeenCalledWith(mockWindow);
     expect(mockPurify.sanitize).toHaveBeenCalledWith(parsedHtml);
-    expect(result).toBe('<a href="https://example.com" target="_blank">example</a>');
+    expect(result).toBe(
+      '<a href="https://example.com" target="_blank">example</a>',
+    );
   });
 
   test('should handle empty markdown string', () => {
@@ -65,8 +72,10 @@ describe('markdownToHtml', () => {
   });
 
   test('should add target="_blank" to multiple anchors without target attribute', () => {
-    const markdown = '[link1](https://example1.com) [link2](https://example2.com)';
-    const parsedHtml = '<a href="https://example1.com">link1</a> <a href="https://example2.com">link2</a>';
+    const markdown =
+      '[link1](https://example1.com) [link2](https://example2.com)';
+    const parsedHtml =
+      '<a href="https://example1.com">link1</a> <a href="https://example2.com">link2</a>';
     const sanitizedHtml = parsedHtml;
 
     vi.mocked(marked.parse).mockReturnValue(parsedHtml);
@@ -89,12 +98,15 @@ describe('markdownToHtml', () => {
 
     const result = markdownToHtml(markdown);
 
-    expect(result).toBe('<a href="https://example.com" target="_self">link</a>');
+    expect(result).toBe(
+      '<a href="https://example.com" target="_self">link</a>',
+    );
   });
 
   test('should handle anchors with multiple attributes', () => {
     const markdown = '[link](https://example.com)';
-    const parsedHtml = '<a href="https://example.com" class="link" id="main-link">link</a>';
+    const parsedHtml =
+      '<a href="https://example.com" class="link" id="main-link">link</a>';
     const sanitizedHtml = parsedHtml;
 
     vi.mocked(marked.parse).mockReturnValue(parsedHtml);
@@ -102,7 +114,9 @@ describe('markdownToHtml', () => {
 
     const result = markdownToHtml(markdown);
 
-    expect(result).toBe('<a href="https://example.com" class="link" id="main-link" target="_blank">link</a>');
+    expect(result).toBe(
+      '<a href="https://example.com" class="link" id="main-link" target="_blank">link</a>',
+    );
   });
 
   test('should handle anchors without attributes except href', () => {
@@ -119,7 +133,8 @@ describe('markdownToHtml', () => {
   });
 
   test('should handle mixed anchors with and without target attribute', () => {
-    const markdown = '[link1](https://example1.com) [link2](https://example2.com)';
+    const markdown =
+      '[link1](https://example1.com) [link2](https://example2.com)';
     const parsedHtml =
       '<a href="https://example1.com">link1</a> <a href="https://example2.com" target="_parent">link2</a>';
     const sanitizedHtml = parsedHtml;
@@ -149,7 +164,8 @@ describe('markdownToHtml', () => {
 
   test('should handle anchor with single-quoted target attribute (regex edge case)', () => {
     const markdown = '[link](https://example.com)';
-    const parsedHtml = "<a href=\"https://example.com\" target='_blank'>link</a>";
+    const parsedHtml =
+      '<a href="https://example.com" target=\'_blank\'>link</a>';
     const sanitizedHtml = parsedHtml;
 
     vi.mocked(marked.parse).mockReturnValue(parsedHtml);
@@ -157,7 +173,9 @@ describe('markdownToHtml', () => {
 
     const result = markdownToHtml(markdown);
 
-    expect(result).toBe("<a href=\"https://example.com\" target='_blank'>link</a>");
+    expect(result).toBe(
+      '<a href="https://example.com" target=\'_blank\'>link</a>',
+    );
   });
 
   test('should replace del tags with tilde', () => {
@@ -201,7 +219,8 @@ describe('markdownToHtml', () => {
 
   test('should handle mixed content with del tags and anchors', () => {
     const markdown = '[link](https://example.com) with ~~strikethrough~~';
-    const parsedHtml = '<a href="https://example.com">link</a> with <del>strikethrough</del>';
+    const parsedHtml =
+      '<a href="https://example.com">link</a> with <del>strikethrough</del>';
     const sanitizedHtml = parsedHtml;
 
     vi.mocked(marked.parse).mockReturnValue(parsedHtml);
@@ -209,7 +228,9 @@ describe('markdownToHtml', () => {
 
     const result = markdownToHtml(markdown);
 
-    expect(result).toBe('<a href="https://example.com" target="_blank">link</a> with ~strikethrough~');
+    expect(result).toBe(
+      '<a href="https://example.com" target="_blank">link</a> with ~strikethrough~',
+    );
   });
 
   test('should convert unconverted ** markdown syntax to <b> tags', () => {
@@ -253,7 +274,8 @@ describe('markdownToHtml', () => {
 
   test('should handle unconverted bold syntax with anchors and del tags', () => {
     const markdown = '**bold** [link](https://example.com) ~~strike~~';
-    const parsedHtml = '**bold** <a href="https://example.com">link</a> <del>strike</del>';
+    const parsedHtml =
+      '**bold** <a href="https://example.com">link</a> <del>strike</del>';
     const sanitizedHtml = parsedHtml;
 
     vi.mocked(marked.parse).mockReturnValue(parsedHtml);
@@ -261,7 +283,9 @@ describe('markdownToHtml', () => {
 
     const result = markdownToHtml(markdown);
 
-    expect(result).toBe('<b>bold</b> <a href="https://example.com" target="_blank">link</a> ~strike~');
+    expect(result).toBe(
+      '<b>bold</b> <a href="https://example.com" target="_blank">link</a> ~strike~',
+    );
   });
 
   test('should handle text with single asterisks (not bold)', () => {

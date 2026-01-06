@@ -1,3 +1,8 @@
+import { LoggingExecutor } from '~/logging/logging-executor';
+
+import GenerateNewsletter from '../llm-queries/generate-newsletter.llm';
+import ContentGenerateChain from './content-generate.chain';
+
 vi.mock('../llm-queries/generate-newsletter.llm', () => {
   let nextResult: any = null;
   const calls: any[] = [];
@@ -20,10 +25,6 @@ vi.mock('../llm-queries/generate-newsletter.llm', () => {
   return { default: GenerateNewsletterMock };
 });
 
-import ContentGenerateChain from './content-generate.chain';
-import GenerateNewsletter from '../llm-queries/generate-newsletter.llm';
-import { LoggingExecutor } from '~/logging/logging-executor';
-
 describe('ContentGenerateChain', () => {
   const createChain = (overrides?: Partial<any>) => {
     const logger = { debug: vi.fn(), info: vi.fn(), error: vi.fn() } as any;
@@ -40,11 +41,9 @@ describe('ContentGenerateChain', () => {
       issueOrder: overrides?.issueOrder ?? 1,
       subscribePageUrl: overrides?.subscribePageUrl ?? 'https://sub.example',
       fetchArticleCandidates:
-        overrides?.fetchArticleCandidates ??
-        vi.fn().mockResolvedValue([]),
+        overrides?.fetchArticleCandidates ?? vi.fn().mockResolvedValue([]),
       saveNewsletter:
-        overrides?.saveNewsletter ??
-        vi.fn().mockResolvedValue({ id: 999 }),
+        overrides?.saveNewsletter ?? vi.fn().mockResolvedValue({ id: 999 }),
     } as any;
 
     const options = {
@@ -58,7 +57,9 @@ describe('ContentGenerateChain', () => {
       taskId: { id: 'task-1' } as any,
       provider,
       options,
-      loggingExecutor: new LoggingExecutor(logger, { id: 'task-1' } as any) as any,
+      loggingExecutor: new LoggingExecutor(logger, {
+        id: 'task-1',
+      } as any) as any,
       dateService,
     });
 
@@ -94,7 +95,9 @@ describe('ContentGenerateChain', () => {
 
     // early-return log
     expect(logger.debug).toHaveBeenCalledWith(
-      expect.objectContaining({ event: 'generate.content.core.generate.noarticle' }),
+      expect.objectContaining({
+        event: 'generate.content.core.generate.noarticle',
+      }),
     );
   });
 
@@ -108,7 +111,10 @@ describe('ContentGenerateChain', () => {
 
     const { chain, provider, logger } = createChain({
       fetchArticleCandidates: vi.fn().mockResolvedValue(candidates),
-      publicationCriteria: { minimumArticleCountForIssue: 5, priorityArticleScoreThreshold: 8 },
+      publicationCriteria: {
+        minimumArticleCountForIssue: 5,
+        priorityArticleScoreThreshold: 8,
+      },
     });
 
     const result = await (chain.chain as any).invoke({});
@@ -122,7 +128,9 @@ describe('ContentGenerateChain', () => {
     expect((GenerateNewsletter as any).__getCalls?.()).toHaveLength(0);
 
     expect(logger.debug).toHaveBeenCalledWith(
-      expect.objectContaining({ event: 'generate.content.core.generate.criteria' }),
+      expect.objectContaining({
+        event: 'generate.content.core.generate.criteria',
+      }),
     );
   });
 
@@ -144,7 +152,10 @@ describe('ContentGenerateChain', () => {
     });
 
     // Configure LLM result
-    (GenerateNewsletter as any).__setExecuteResult?.({ title: 'Hello', content: 'World' });
+    (GenerateNewsletter as any).__setExecuteResult?.({
+      title: 'Hello',
+      content: 'World',
+    });
 
     const result = await (chain.chain as any).invoke({});
 
@@ -154,11 +165,17 @@ describe('ContentGenerateChain', () => {
     expect(callCfg.targetArticles).toEqual(candidates);
     expect(callCfg.subscribePageUrl).toBe(provider.subscribePageUrl);
     expect(callCfg.dateService).toBe(dateService);
-    expect(callCfg.options).toEqual({ content: { lang: 'ko' }, llm: { temperature: 0.2 } });
+    expect(callCfg.options).toEqual({
+      content: { lang: 'ko' },
+      llm: { temperature: 0.2 },
+    });
     expect(callCfg.loggingExecutor).toBeTruthy();
 
     const expectedHtml = '<h1>Hello</h1>\n<p>World</p>';
-    expect(result.generatedCoreContent).toEqual({ title: 'Hello', content: 'World' });
+    expect(result.generatedCoreContent).toEqual({
+      title: 'Hello',
+      content: 'World',
+    });
     expect(result.html).toBe(expectedHtml);
     expect(saveNewsletter).toHaveBeenCalledTimes(1);
     expect(saveNewsletter).toHaveBeenCalledWith({
@@ -182,11 +199,20 @@ describe('ContentGenerateChain', () => {
 
     const { chain } = createChain({
       fetchArticleCandidates: vi.fn().mockResolvedValue(candidates),
-      publicationCriteria: { minimumArticleCountForIssue: 5, priorityArticleScoreThreshold: 8 },
-      htmlTemplate: { html: '<h1>{{mt}}</h1><section>{{mc}}</section>', markers: { title: 'mt', content: 'mc' } },
+      publicationCriteria: {
+        minimumArticleCountForIssue: 5,
+        priorityArticleScoreThreshold: 8,
+      },
+      htmlTemplate: {
+        html: '<h1>{{mt}}</h1><section>{{mc}}</section>',
+        markers: { title: 'mt', content: 'mc' },
+      },
     });
 
-    (GenerateNewsletter as any).__setExecuteResult?.({ title: 'T', content: 'C' });
+    (GenerateNewsletter as any).__setExecuteResult?.({
+      title: 'T',
+      content: 'C',
+    });
 
     const result = await (chain.chain as any).invoke({});
 

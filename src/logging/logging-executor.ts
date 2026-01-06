@@ -15,7 +15,7 @@ export type ExecuteWithLoggingConfig<T> = {
 /**
  * Executor that provides a standardized start/done/error logging pattern.
  * - Uses the injected logger and taskId to attach common fields to every log.
- * - Pass config.event as a prefix like "crawl.group"; 
+ * - Pass config.event as a prefix like "crawl.group";
  *   ".start"/".done"/".error" are appended automatically.
  */
 export class LoggingExecutor<TaskId> {

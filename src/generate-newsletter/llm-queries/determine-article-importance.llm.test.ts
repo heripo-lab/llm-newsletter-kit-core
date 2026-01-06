@@ -60,10 +60,16 @@ describe('DetermineArticleImportance', () => {
     expect(callArg.maxRetries).toBe(2);
 
     // zod schema boundaries
-    expect(() => callArg.output.schema.parse({ importanceScore: 1 })).not.toThrow();
-    expect(() => callArg.output.schema.parse({ importanceScore: 10 })).not.toThrow();
+    expect(() =>
+      callArg.output.schema.parse({ importanceScore: 1 }),
+    ).not.toThrow();
+    expect(() =>
+      callArg.output.schema.parse({ importanceScore: 10 }),
+    ).not.toThrow();
     expect(() => callArg.output.schema.parse({ importanceScore: 0 })).toThrow();
-    expect(() => callArg.output.schema.parse({ importanceScore: 11 })).toThrow();
+    expect(() =>
+      callArg.output.schema.parse({ importanceScore: 11 }),
+    ).toThrow();
 
     // system prompt should include expert field and reflect minPoint=1 branch
     expect(callArg.system).toContain('AI');

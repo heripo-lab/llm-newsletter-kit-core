@@ -63,9 +63,7 @@ describe('LoggingExecutor.executeWithLogging', () => {
     const logger = makeLogger();
     const executor = new LoggingExecutor(logger as any, 'task-2');
 
-    vi.spyOn(Date, 'now')
-      .mockReturnValueOnce(2_000)
-      .mockReturnValueOnce(2_600);
+    vi.spyOn(Date, 'now').mockReturnValueOnce(2_000).mockReturnValueOnce(2_600);
 
     const fn = vi.fn<() => Promise<number>>().mockResolvedValue(42);
 
@@ -137,9 +135,7 @@ describe('LoggingExecutor.executeWithLogging', () => {
     const logger = makeLogger();
     const executor = new LoggingExecutor(logger as any, 'task-3');
 
-    vi.spyOn(Date, 'now')
-      .mockReturnValueOnce(3_000)
-      .mockReturnValueOnce(3_700);
+    vi.spyOn(Date, 'now').mockReturnValueOnce(3_000).mockReturnValueOnce(3_700);
 
     const boom = new Error('boom');
     const fn = vi.fn<() => Promise<void>>().mockRejectedValue(boom);
@@ -181,9 +177,7 @@ describe('LoggingExecutor.executeWithLogging', () => {
     const logger = makeLogger();
     const executor = new LoggingExecutor(logger as any, 'task-4');
 
-    vi.spyOn(Date, 'now')
-      .mockReturnValueOnce(5_000)
-      .mockReturnValueOnce(5_123);
+    vi.spyOn(Date, 'now').mockReturnValueOnce(5_000).mockReturnValueOnce(5_123);
 
     const err = new Error('fail');
     const fn = vi.fn<() => Promise<void>>().mockRejectedValue(err);

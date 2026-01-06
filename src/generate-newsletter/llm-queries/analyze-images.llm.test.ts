@@ -117,7 +117,9 @@ describe('AnalyzeImages', () => {
     expect(callArg.maxRetries).toBe(3);
 
     // schema: requires { imageContext: string }
-    expect(() => callArg.output.schema.parse({ imageContext: 'ok' })).not.toThrow();
+    expect(() =>
+      callArg.output.schema.parse({ imageContext: 'ok' }),
+    ).not.toThrow();
     expect(() => callArg.output.schema.parse({})).toThrow();
 
     // system prompt should include expert field and output language
