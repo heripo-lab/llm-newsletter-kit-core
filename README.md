@@ -3,13 +3,13 @@
 > **Automate domain-expert newsletters powered by AI**
 
 [
-  ![CI](https://github.com/kimhongyeon/llm-newsletter-kit-core/actions/workflows/ci.yml/badge.svg)
-](https://github.com/kimhongyeon/llm-newsletter-kit-core/actions/workflows/ci.yml)
+  ![CI](https://github.com/heripo-lab/llm-newsletter-kit-core/actions/workflows/ci.yml/badge.svg)
+](https://github.com/heripo-lab/llm-newsletter-kit-core/actions/workflows/ci.yml)
 [
   ![npm version](https://img.shields.io/npm/v/%40llm-newsletter-kit/core?logo=npm&color=cb0000)
 ](https://www.npmjs.com/package/@llm-newsletter-kit/core)
 ![coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
-![license](https://img.shields.io/github/license/kimhongyeon/llm-newsletter-kit-core)
+![license](https://img.shields.io/github/license/heripo-lab/llm-newsletter-kit-core)
 ![node](https://img.shields.io/node/v/%40llm-newsletter-kit/core)
 
 Important: [Code of Conduct](./CODE_OF_CONDUCT.md) • [Security Policy](./SECURITY.md) • [Contributing](./CONTRIBUTING.md)
@@ -45,7 +45,7 @@ His design philosophy: **"Logic in code, reasoning in AI, connections in archite
 
 **Quick Links**
 - Research Radar (Live Service): https://heripo.com/research-radar/subscribe
-- Source Code (Usage Example): https://github.com/kimhongyeon/heripo-research-radar
+- Source Code (Usage Example): https://github.com/heripo-lab/heripo-research-radar
 
 ## Why Code-Based?
 
@@ -129,7 +129,7 @@ const newsletterId = await generator.generate();
 - HTML email templates
 - Preview email configuration
 
-👉 **See the reference implementation: https://github.com/kimhongyeon/heripo-research-radar**
+👉 **See the reference implementation: https://github.com/heripo-lab/heripo-research-radar**
 
 ## Public API Overview
 
@@ -199,7 +199,7 @@ For academic papers or research documentation, you may use the following BibTeX 
   author = {Kim, Hongyeon},
   title = {LLM Newsletter Kit: Type-First Extensible Toolkit for Automating LLM-Based Newsletter Creation},
   year = {2025},
-  url = {https://github.com/kimhongyeon/llm-newsletter-kit-core},
+  url = {https://github.com/heripo-lab/llm-newsletter-kit-core},
   note = {Apache License 2.0}
 }
 ```

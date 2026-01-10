@@ -15,7 +15,7 @@
  
  Please do NOT open public GitHub issues for security vulnerabilities.
  
- - Use GitHub Security Advisories to privately report issues: https://github.com/kimhongyeon/llm-newsletter-kit-core/security/advisories/new
+ - Use GitHub Security Advisories to privately report issues: https://github.com/heripo-lab/llm-newsletter-kit-core/security/advisories/new
  - Alternatively, you can reach out via GitHub Discussions if you’re unsure whether a finding is security-related.
  
  Provide as much detail as possible:

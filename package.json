@@ -75,12 +75,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/kimhongyeon/llm-newsletter-kit-core"
+    "url": "https://github.com/heripo-lab/llm-newsletter-kit-core"
   },
   "bugs": {
-    "url": "https://github.com/kimhongyeon/llm-newsletter-kit-core/issues"
+    "url": "https://github.com/heripo-lab/llm-newsletter-kit-core/issues"
   },
-  "homepage": "https://github.com/kimhongyeon/llm-newsletter-kit-core",
+  "homepage": "https://github.com/heripo-lab/llm-newsletter-kit-core",
   "keywords": [
     "llm",
     "newsletter",

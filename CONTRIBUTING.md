@@ -55,7 +55,7 @@ npm test
 ## Fork & Pull Request Workflow
 
 ### 1. Fork the Repository
-Click "Fork" button on GitHub: https://github.com/kimhongyeon/llm-newsletter-kit-core
+Click "Fork" button on GitHub: https://github.com/heripo-lab/llm-newsletter-kit-core
 
 ### 2. Clone Your Fork
 ```bash
@@ -65,7 +65,7 @@ cd llm-newsletter-kit-core
 
 ### 3. Add Upstream Remote
 ```bash
-git remote add upstream https://github.com/kimhongyeon/llm-newsletter-kit-core.git
+git remote add upstream https://github.com/heripo-lab/llm-newsletter-kit-core.git
 git remote -v  # Verify: origin (your fork), upstream (original repo)
 ```
 
@@ -108,7 +108,7 @@ git push origin feat/your-feature-name
 ### 8. Create Pull Request
 1. Go to your fork on GitHub: `https://github.com/YOUR_USERNAME/llm-newsletter-kit-core`
 2. Click "Compare & pull request" button
-3. Base repository: `kimhongyeon/llm-newsletter-kit-core` base: `main`
+3. Base repository: `heripo-lab/llm-newsletter-kit-core` base: `main`
 4. Head repository: `YOUR_USERNAME/llm-newsletter-kit-core` compare: `feat/your-feature-name`
 5. Fill in PR template with description of changes
 6. Submit!

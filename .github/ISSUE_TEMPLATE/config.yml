@@ -1,5 +1,5 @@
  blank_issues_enabled: false
  contact_links:
    - name: Security vulnerability
-     url: https://github.com/kimhongyeon/llm-newsletter-kit-core/security/policy
+     url: https://github.com/heripo-lab/llm-newsletter-kit-core/security/policy
      about: Please report security vulnerabilities privately via our Security Policy.
