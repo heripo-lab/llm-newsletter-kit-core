@@ -23,6 +23,7 @@ npm-debug.log*
 
 # AI assistant files
 CLAUDE.md
+AGENTS.md
 .cursorrules
 .cursor/
 .aider*
