@@ -365,4 +365,97 @@ describe('markdownToHtml', () => {
 
     expect(result).toBe('<p><b>bold in paragraph</b></p>');
   });
+
+  describe('correctMalformedUrls', () => {
+    test('should fix URL with closing parenthesis and Korean text', () => {
+      const markdown =
+        "'무형유산지식새김'(https://iha.go.kr)으로 새 단장했습니다.";
+      const parsedHtml =
+        '<p>\'무형유산지식새김\'(<a href="https://iha.go.kr)%EC%9C%으%EB%A1%9C">https://iha.go.kr)으로</a> 새 단장했습니다.</p>';
+
+      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
+      mockPurify.sanitize.mockReturnValue(parsedHtml);
+
+      const result = markdownToHtml(markdown);
+
+      expect(result).toBe(
+        '<p>\'무형유산지식새김\'(<a href="https://iha.go.kr" target="_blank">https://iha.go.kr</a>)으로 새 단장했습니다.</p>',
+      );
+    });
+
+    test('should fix multiple malformed URLs in same text', () => {
+      const markdown = '(https://a.com)텍스트1 and (https://b.com)텍스트2';
+      const parsedHtml =
+        '<p>(<a href="https://a.com)%ED%85%8D%EC%8A%A4%ED%8A%B81">https://a.com)텍스트1</a> and (<a href="https://b.com)%ED%85%8D%EC%8A%A4%ED%8A%B82">https://b.com)텍스트2</a></p>';
+
+      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
+      mockPurify.sanitize.mockReturnValue(parsedHtml);
+
+      const result = markdownToHtml(markdown);
+
+      expect(result).toBe(
+        '<p>(<a href="https://a.com" target="_blank">https://a.com</a>)텍스트1 and (<a href="https://b.com" target="_blank">https://b.com</a>)텍스트2</p>',
+      );
+    });
+
+    test('should not affect correctly formed URLs with ) followed by whitespace', () => {
+      const markdown = 'text (https://example.com) more text';
+      const parsedHtml =
+        '<p>text (<a href="https://example.com">https://example.com</a>) more text</p>';
+
+      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
+      mockPurify.sanitize.mockReturnValue(parsedHtml);
+
+      const result = markdownToHtml(markdown);
+
+      expect(result).toBe(
+        '<p>text (<a href="https://example.com" target="_blank">https://example.com</a>) more text</p>',
+      );
+    });
+
+    test('should not affect URLs without closing parenthesis', () => {
+      const markdown = 'text https://example.com more';
+      const parsedHtml =
+        '<p>text <a href="https://example.com">https://example.com</a> more</p>';
+
+      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
+      mockPurify.sanitize.mockReturnValue(parsedHtml);
+
+      const result = markdownToHtml(markdown);
+
+      expect(result).toBe(
+        '<p>text <a href="https://example.com" target="_blank">https://example.com</a> more</p>',
+      );
+    });
+
+    test('should handle URL with path followed by ) and non-ASCII text', () => {
+      const markdown = '(https://example.com/path)텍스트';
+      const parsedHtml =
+        '<p>(<a href="https://example.com/path)%ED%85%8D%EC%8A%A4%ED%8A%B8">https://example.com/path)텍스트</a></p>';
+
+      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
+      mockPurify.sanitize.mockReturnValue(parsedHtml);
+
+      const result = markdownToHtml(markdown);
+
+      expect(result).toBe(
+        '<p>(<a href="https://example.com/path" target="_blank">https://example.com/path</a>)텍스트</p>',
+      );
+    });
+
+    test('should preserve other anchor attributes when fixing URLs', () => {
+      const markdown = 'https://example.com)텍스트';
+      const parsedHtml =
+        '<a class="link" id="test" href="https://example.com)%ED%85%8D%EC%8A%A4%ED%8A%B8">https://example.com)텍스트</a>';
+
+      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
+      mockPurify.sanitize.mockReturnValue(parsedHtml);
+
+      const result = markdownToHtml(markdown);
+
+      expect(result).toBe(
+        '<a class="link" id="test" href="https://example.com" target="_blank">https://example.com</a>)텍스트',
+      );
+    });
+  });
 });

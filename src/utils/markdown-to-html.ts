@@ -8,7 +8,8 @@ function markdownToHtml(markdown: string): string {
   const window = new JSDOM('').window;
   const purify = DOMPurify(window);
   const sanitized = purify.sanitize(html);
-  const withTargetBlank = addTargetBlankToAnchors(sanitized);
+  const withCorrectedUrls = correctMalformedUrls(sanitized);
+  const withTargetBlank = addTargetBlankToAnchors(withCorrectedUrls);
   const withDelReplaced = replaceDelTagsWithTilde(withTargetBlank);
   return correctUnconvertedBoldSyntax(withDelReplaced);
 }
@@ -45,4 +46,34 @@ function correctUnconvertedBoldSyntax(htmlString: string): string {
   // Replace unconverted "**text**" markdown syntax with <b> tags
   // Matches "**" followed by one or more non-asterisk characters, followed by "**"
   return htmlString.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+}
+
+function correctMalformedUrls(htmlString: string): string {
+  // Pattern matches anchors with `)` followed by URL-encoded characters
+  // Capture groups:
+  // 1: attributes before href
+  // 2: URL base (before `)`)
+  // 3: URL-encoded part (starts with %)
+  // 4: attributes after href
+  // 5: link text base (before `)`)
+  // 6: decoded text after `)` in link text
+  const regex =
+    /<a\s+([^>]*?)href="([^"]*?)\)(%[0-9A-Fa-f]{2}[^"]*?)"([^>]*?)>([^<]*?)\)([^<]*?)<\/a>/g;
+
+  return htmlString.replace(
+    regex,
+    (
+      _match,
+      beforeHref,
+      urlBase,
+      _encodedPart,
+      afterHref,
+      textBase,
+      decodedTextInLink,
+    ) => {
+      // The decoded text is already in the link text (decodedTextInLink)
+      // We just need to move it outside the anchor along with the `)`
+      return `<a ${beforeHref}href="${urlBase}"${afterHref}>${textBase}</a>)${decodedTextInLink}`;
+    },
+  );
 }
