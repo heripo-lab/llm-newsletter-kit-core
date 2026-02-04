@@ -27,6 +27,21 @@ type HtmlWithPipelineId = {
   pipelineId: string;
 };
 
+type DetailFetchResult = {
+  list: ParsedTargetListItemWithPipelineId[];
+  detailPagesHtmlWithPipelineId: HtmlWithPipelineId[];
+  failedCount: number;
+};
+
+type DetailParseResult = {
+  list: ParsedTargetListItemWithPipelineId[];
+  parsedDetails: ParsedTargetDetailWithPipelineId[];
+  failedCount: number;
+};
+
+const toErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
 export default class CrawlingChain<TaskId> extends Chain<
   TaskId,
   CrawlingProvider
@@ -69,20 +84,26 @@ export default class CrawlingChain<TaskId> extends Chain<
         target: ({ target }) => target,
       })
       .pipe({
-        detailPagesHtmlWithPipelineId: ({ target, list }) =>
+        detailFetchResult: ({ target, list }) =>
           this.fetchDetailPagesHtml(target, list),
         target: ({ target }) => target,
-        list: ({ list }) => list,
       })
       .pipe({
-        parsedDetails: ({ target, detailPagesHtmlWithPipelineId }) =>
-          this.parseDetailPagesHtml(target, detailPagesHtmlWithPipelineId),
+        detailParseResult: ({ target, detailFetchResult }) =>
+          this.parseDetailPagesHtml(
+            target,
+            detailFetchResult.list,
+            detailFetchResult.detailPagesHtmlWithPipelineId,
+          ),
         target: ({ target }) => target,
-        list: ({ list }) => list,
       })
       .pipe({
-        processedArticles: ({ target, list, parsedDetails }) =>
-          this.mergeParsedArticles(target, list, parsedDetails),
+        processedArticles: ({ target, detailParseResult }) =>
+          this.mergeParsedArticles(
+            target,
+            detailParseResult.list,
+            detailParseResult.parsedDetails,
+          ),
         target: ({ target }) => target,
       })
       .pipe({
@@ -122,7 +143,20 @@ export default class CrawlingChain<TaskId> extends Chain<
         startFields: { target: this.describeTarget(target) },
       },
       async () => {
-        return await getHtmlFromUrl(this.logger, target.url);
+        try {
+          return await getHtmlFromUrl(this.logger, target.url);
+        } catch (error) {
+          this.logger.error({
+            event: 'crawl.list.fetch.failed',
+            taskId: this.taskId,
+            data: {
+              target: this.describeTarget(target),
+              url: target.url,
+              error: toErrorMessage(error),
+            },
+          });
+          return '';
+        }
       },
     );
   }
@@ -142,10 +176,26 @@ export default class CrawlingChain<TaskId> extends Chain<
         doneFields: (items) => ({ count: items.length }),
       },
       async () => {
-        return (await target.parseList(listPageHtml)).map((item) => ({
-          ...item,
-          pipelineId: randomUUID(),
-        }));
+        if (listPageHtml.length === 0) {
+          return [];
+        }
+
+        try {
+          return (await target.parseList(listPageHtml)).map((item) => ({
+            ...item,
+            pipelineId: randomUUID(),
+          }));
+        } catch (error) {
+          this.logger.error({
+            event: 'crawl.list.parse.failed',
+            taskId: this.taskId,
+            data: {
+              target: this.describeTarget(target),
+              error: toErrorMessage(error),
+            },
+          });
+          return [];
+        }
       },
     );
   }
@@ -185,7 +235,7 @@ export default class CrawlingChain<TaskId> extends Chain<
   private async fetchDetailPagesHtml(
     target: CrawlingTarget,
     list: ParsedTargetListItemWithPipelineId[],
-  ): Promise<HtmlWithPipelineId[]> {
+  ): Promise<DetailFetchResult> {
     return this.executeWithLogging(
       {
         event: 'crawl.detail.fetch',
@@ -194,25 +244,57 @@ export default class CrawlingChain<TaskId> extends Chain<
           target: this.describeTarget(target),
           count: list.length,
         },
-        doneFields: (htmlList) => ({ count: htmlList.length }),
+        doneFields: (result) => ({
+          successCount: result.detailPagesHtmlWithPipelineId.length,
+          failedCount: result.failedCount,
+        }),
       },
       async () => {
-        const htmlList = await Promise.all(
+        const settled = await Promise.allSettled(
           list.map((data) => getHtmlFromUrl(this.logger, data.detailUrl)),
         );
 
-        return htmlList.map((html, index) => ({
-          pipelineId: list[index].pipelineId,
-          html,
-        }));
+        const detailPagesHtmlWithPipelineId: HtmlWithPipelineId[] = [];
+        const successList: ParsedTargetListItemWithPipelineId[] = [];
+        let failedCount = 0;
+
+        settled.forEach((result, index) => {
+          const item = list[index];
+          if (result.status === 'fulfilled') {
+            detailPagesHtmlWithPipelineId.push({
+              pipelineId: item.pipelineId,
+              html: result.value,
+            });
+            successList.push(item);
+            return;
+          }
+
+          failedCount += 1;
+          this.logger.error({
+            event: 'crawl.detail.fetch.failed',
+            taskId: this.taskId,
+            data: {
+              target: this.describeTarget(target),
+              detailUrl: item.detailUrl,
+              error: toErrorMessage(result.reason),
+            },
+          });
+        });
+
+        return {
+          list: successList,
+          detailPagesHtmlWithPipelineId,
+          failedCount,
+        };
       },
     );
   }
 
   private async parseDetailPagesHtml(
     target: CrawlingTarget,
+    list: ParsedTargetListItemWithPipelineId[],
     detailPagesHtmlWithPipelineId: HtmlWithPipelineId[],
-  ): Promise<ParsedTargetDetailWithPipelineId[]> {
+  ): Promise<DetailParseResult> {
     return this.executeWithLogging(
       {
         event: 'crawl.detail.parse',
@@ -221,19 +303,60 @@ export default class CrawlingChain<TaskId> extends Chain<
           target: this.describeTarget(target),
           count: detailPagesHtmlWithPipelineId.length,
         },
-        doneFields: (details) => ({ count: details.length }),
+        doneFields: (result) => ({
+          successCount: result.parsedDetails.length,
+          failedCount: result.failedCount,
+        }),
       },
       async () => {
-        const detail = await Promise.all(
+        const listItemMap = new Map(
+          list.map((item) => [item.pipelineId, item]),
+        );
+
+        const settled = await Promise.allSettled(
           detailPagesHtmlWithPipelineId.map(({ html }) =>
             target.parseDetail(html),
           ),
         );
 
-        return detail.map((detail, index) => ({
-          pipelineId: detailPagesHtmlWithPipelineId[index].pipelineId,
-          ...detail,
-        }));
+        const parsedDetails: ParsedTargetDetailWithPipelineId[] = [];
+        const successList: ParsedTargetListItemWithPipelineId[] = [];
+        let failedCount = 0;
+
+        settled.forEach((result, index) => {
+          const htmlItem = detailPagesHtmlWithPipelineId[index];
+          const listItem = listItemMap.get(htmlItem.pipelineId);
+
+          if (result.status === 'fulfilled' && listItem) {
+            parsedDetails.push({
+              pipelineId: htmlItem.pipelineId,
+              ...result.value,
+            });
+            successList.push(listItem);
+            return;
+          }
+
+          failedCount += 1;
+          this.logger.error({
+            event: 'crawl.detail.parse.failed',
+            taskId: this.taskId,
+            data: {
+              target: this.describeTarget(target),
+              detailUrl: listItem?.detailUrl,
+              pipelineId: htmlItem.pipelineId,
+              error:
+                result.status === 'rejected'
+                  ? toErrorMessage(result.reason)
+                  : 'Missing list item for parsed detail',
+            },
+          });
+        });
+
+        return {
+          list: successList,
+          parsedDetails,
+          failedCount,
+        };
       },
     );
   }

@@ -11,7 +11,7 @@ const makeTarget = (
   name: string | undefined,
   url: string,
   list: { detailUrl: string; title?: string }[],
-  detailByUrl: Record<string, Record<string, any>>,
+  detailByUrl: Record<string, Record<string, any>> = {},
 ) => {
   return {
     name,
@@ -31,6 +31,14 @@ const makeTarget = (
 // We will override parseDetail per target later using vi.spyOn to map html->detail
 
 describe('CrawlingChain', () => {
+  beforeEach(async () => {
+    const { getHtmlFromUrl } = await import('../utils/get-html-from-url');
+    vi.mocked(getHtmlFromUrl).mockClear();
+    vi.mocked(getHtmlFromUrl).mockImplementation(
+      async (_logger: any, url: string) => `HTML:${url}`,
+    );
+  });
+
   test('runs full pipeline per group: dedupe, fetch, parse, merge, save; returns total count and uses unknown name fallback', async () => {
     const { getHtmlFromUrl } = await import('../utils/get-html-from-url');
     const loggingExecutor = makeLoggingExecutor();
@@ -148,6 +156,280 @@ describe('CrawlingChain', () => {
     // parseDetail spies should be invoked once per deduped item
     expect((t1 as any).parseDetail).toHaveBeenCalledTimes(1);
     expect((t2 as any).parseDetail).toHaveBeenCalledTimes(1);
+  });
+
+  test('list fetch failure logs error and results in zero saved items', async () => {
+    const { getHtmlFromUrl } = await import('../utils/get-html-from-url');
+    vi.mocked(getHtmlFromUrl).mockRejectedValueOnce(new Error('list fail'));
+
+    const loggingExecutor = makeLoggingExecutor();
+    const target = makeTarget('T1', 'https://site.test/list-fail', [
+      { detailUrl: 'https://site.test/a1', title: 'A1' },
+    ]);
+
+    const provider = {
+      maxConcurrency: 1,
+      crawlingTargetGroups: [
+        {
+          name: 'group-1',
+          targets: [target],
+        },
+      ],
+      fetchExistingArticlesByUrls: vi.fn(async () => []),
+      saveCrawledArticles: vi.fn(async (articles: any[]) => articles.length),
+    } as any;
+
+    const logger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() } as any;
+    const chain = new CrawlingChain({
+      logger,
+      taskId: 'task-list-fetch-fail',
+      provider,
+      options: { chain: { stopAfterAttempt: 1 } } as any,
+      loggingExecutor: loggingExecutor as any,
+    });
+
+    const total = await (chain.chain as any)['group-1']();
+
+    expect(total).toBe(0);
+    expect(provider.saveCrawledArticles).toHaveBeenCalledTimes(1);
+    const [savedArticles] = (provider.saveCrawledArticles as any).mock.calls[0];
+    expect(savedArticles).toHaveLength(0);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'crawl.list.fetch.failed' }),
+    );
+  });
+
+  test('list parse failure logs error and results in zero saved items', async () => {
+    const { getHtmlFromUrl } = await import('../utils/get-html-from-url');
+    vi.mocked(getHtmlFromUrl).mockImplementation(
+      async (_logger: any, url: string) => `HTML:${url}`,
+    );
+
+    const loggingExecutor = makeLoggingExecutor();
+    const target = makeTarget('T1', 'https://site.test/list-parse-fail', [
+      { detailUrl: 'https://site.test/a1', title: 'A1' },
+    ]);
+    (target as any).parseList = vi.fn(async () => {
+      throw new Error('parse fail');
+    });
+
+    const provider = {
+      maxConcurrency: 1,
+      crawlingTargetGroups: [
+        {
+          name: 'group-1',
+          targets: [target],
+        },
+      ],
+      fetchExistingArticlesByUrls: vi.fn(async () => []),
+      saveCrawledArticles: vi.fn(async (articles: any[]) => articles.length),
+    } as any;
+
+    const logger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() } as any;
+    const chain = new CrawlingChain({
+      logger,
+      taskId: 'task-list-parse-fail',
+      provider,
+      options: { chain: { stopAfterAttempt: 1 } } as any,
+      loggingExecutor: loggingExecutor as any,
+    });
+
+    const total = await (chain.chain as any)['group-1']();
+
+    expect(total).toBe(0);
+    expect(provider.saveCrawledArticles).toHaveBeenCalledTimes(1);
+    const [savedArticles] = (provider.saveCrawledArticles as any).mock.calls[0];
+    expect(savedArticles).toHaveLength(0);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'crawl.list.parse.failed' }),
+    );
+  });
+
+  test('detail fetch failure logs error and excludes failed items', async () => {
+    const { getHtmlFromUrl } = await import('../utils/get-html-from-url');
+    vi.mocked(getHtmlFromUrl).mockImplementation(
+      async (_logger: any, url: string) => {
+        if (url === 'https://site.test/a2') {
+          throw new Error('detail fetch fail');
+        }
+        return `HTML:${url}`;
+      },
+    );
+
+    const loggingExecutor = makeLoggingExecutor();
+    const list = [
+      { detailUrl: 'https://site.test/a1', title: 'A1' },
+      { detailUrl: 'https://site.test/a2', title: 'A2' },
+    ];
+    const details: Record<string, any> = {
+      'https://site.test/a1': { content: 'A1C' },
+      'https://site.test/a2': { content: 'A2C' },
+    };
+    const target = makeTarget('T1', 'https://site.test/list1', list, details);
+    (target as any).parseDetail = vi.fn(async (html: string) => {
+      const url = html.replace('HTML:', '');
+      return details[url];
+    });
+
+    const provider = {
+      maxConcurrency: 1,
+      crawlingTargetGroups: [
+        {
+          name: 'group-1',
+          targets: [target],
+        },
+      ],
+      fetchExistingArticlesByUrls: vi.fn(async () => []),
+      saveCrawledArticles: vi.fn(async (articles: any[]) => articles.length),
+    } as any;
+
+    const logger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() } as any;
+    const chain = new CrawlingChain({
+      logger,
+      taskId: 'task-detail-fetch-fail',
+      provider,
+      options: { chain: { stopAfterAttempt: 1 } } as any,
+      loggingExecutor: loggingExecutor as any,
+    });
+
+    const total = await (chain.chain as any)['group-1']();
+
+    expect(total).toBe(1);
+    expect(provider.saveCrawledArticles).toHaveBeenCalledTimes(1);
+    const [savedArticles] = (provider.saveCrawledArticles as any).mock.calls[0];
+    expect(savedArticles).toHaveLength(1);
+    expect(savedArticles[0].detailUrl).toBe('https://site.test/a1');
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'crawl.detail.fetch.failed' }),
+    );
+  });
+
+  test('detail parse failure logs error and excludes failed items', async () => {
+    const { getHtmlFromUrl } = await import('../utils/get-html-from-url');
+    vi.mocked(getHtmlFromUrl).mockImplementation(
+      async (_logger: any, url: string) => `HTML:${url}`,
+    );
+
+    const loggingExecutor = makeLoggingExecutor();
+    const list = [
+      { detailUrl: 'https://site.test/a1', title: 'A1' },
+      { detailUrl: 'https://site.test/a2', title: 'A2' },
+    ];
+    const target = makeTarget('T1', 'https://site.test/list1', list, {});
+    (target as any).parseDetail = vi.fn(async (html: string) => {
+      if (html.includes('a2')) {
+        throw new Error('detail parse fail');
+      }
+      return { content: 'A1C' };
+    });
+
+    const provider = {
+      maxConcurrency: 1,
+      crawlingTargetGroups: [
+        {
+          name: 'group-1',
+          targets: [target],
+        },
+      ],
+      fetchExistingArticlesByUrls: vi.fn(async () => []),
+      saveCrawledArticles: vi.fn(async (articles: any[]) => articles.length),
+    } as any;
+
+    const logger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() } as any;
+    const chain = new CrawlingChain({
+      logger,
+      taskId: 'task-detail-parse-fail',
+      provider,
+      options: { chain: { stopAfterAttempt: 1 } } as any,
+      loggingExecutor: loggingExecutor as any,
+    });
+
+    const total = await (chain.chain as any)['group-1']();
+
+    expect(total).toBe(1);
+    expect(provider.saveCrawledArticles).toHaveBeenCalledTimes(1);
+    const [savedArticles] = (provider.saveCrawledArticles as any).mock.calls[0];
+    expect(savedArticles).toHaveLength(1);
+    expect(savedArticles[0].detailUrl).toBe('https://site.test/a1');
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'crawl.detail.parse.failed' }),
+    );
+  });
+
+  test('detail parse logs error when list item is missing for a parsed detail', async () => {
+    const loggingExecutor = makeLoggingExecutor();
+    const target = makeTarget('T1', 'https://site.test/list1', []);
+    (target as any).parseDetail = vi.fn(async () => ({ content: 'OK' }));
+
+    const provider = { maxConcurrency: 1, crawlingTargetGroups: [] } as any;
+    const logger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() } as any;
+    const chain = new CrawlingChain({
+      logger,
+      taskId: 'task-detail-parse-missing-list',
+      provider,
+      options: { chain: { stopAfterAttempt: 1 } } as any,
+      loggingExecutor: loggingExecutor as any,
+    });
+
+    const list = [
+      { pipelineId: 'p1', detailUrl: 'https://site.test/a1', title: 'A1' },
+    ];
+    const detailPagesHtmlWithPipelineId = [
+      { pipelineId: 'p2', html: '<html />' },
+    ];
+
+    const result = await (chain as any).parseDetailPagesHtml(
+      target,
+      list,
+      detailPagesHtmlWithPipelineId,
+    );
+
+    expect(result.parsedDetails).toHaveLength(0);
+    expect(result.list).toHaveLength(0);
+    expect(result.failedCount).toBe(1);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'crawl.detail.parse.failed',
+        data: expect.objectContaining({
+          error: 'Missing list item for parsed detail',
+        }),
+      }),
+    );
+  });
+
+  test('toErrorMessage handles non-Error values in error logs', async () => {
+    const { getHtmlFromUrl } = await import('../utils/get-html-from-url');
+    vi.mocked(getHtmlFromUrl).mockRejectedValueOnce('string reason');
+
+    const loggingExecutor = makeLoggingExecutor();
+    const target = makeTarget('T1', 'https://site.test/list1', [
+      { detailUrl: 'https://site.test/a1', title: 'A1' },
+    ]);
+
+    const provider = { maxConcurrency: 1, crawlingTargetGroups: [] } as any;
+    const logger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() } as any;
+    const chain = new CrawlingChain({
+      logger,
+      taskId: 'task-non-error-reason',
+      provider,
+      options: { chain: { stopAfterAttempt: 1 } } as any,
+      loggingExecutor: loggingExecutor as any,
+    });
+
+    const list = [
+      { pipelineId: 'p1', detailUrl: 'https://site.test/a1', title: 'A1' },
+    ];
+
+    await (chain as any).fetchDetailPagesHtml(target, list);
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'crawl.detail.fetch.failed',
+        data: expect.objectContaining({
+          error: 'string reason',
+        }),
+      }),
+    );
   });
 
   test('mergeParsedArticles throws when no matching list item (pipelineId mismatch)', async () => {
