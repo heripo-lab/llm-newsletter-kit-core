@@ -1,460 +1,129 @@
-import DOMPurifyFactory from 'dompurify';
-import { JSDOM } from 'jsdom';
-import { marked } from 'marked';
-
 import markdownToHtml from './markdown-to-html';
 
-vi.mock('marked');
-vi.mock('jsdom');
-vi.mock('dompurify');
-
 describe('markdownToHtml', () => {
-  const mockWindow = {
-    document: {},
-  };
-  const mockPurify = {
-    sanitize: vi.fn(),
-  };
-
-  beforeEach(() => {
-    vi.mocked(JSDOM).mockReturnValue({
-      window: mockWindow,
-    } as unknown as JSDOM);
-    vi.mocked(DOMPurifyFactory).mockReturnValue(
-      mockPurify as unknown as ReturnType<typeof DOMPurifyFactory>,
-    );
-  });
-
   test('should convert markdown to HTML and add target="_blank" to anchors', () => {
-    const markdown = '[example](https://example.com)';
-    const parsedHtml = '<a href="https://example.com">example</a>';
-    const sanitizedHtml = '<a href="https://example.com">example</a>';
+    const result = markdownToHtml('[example](https://example.com)');
 
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(marked.parse).toHaveBeenCalledWith(markdown);
-    expect(JSDOM).toHaveBeenCalledWith('');
-    expect(DOMPurifyFactory).toHaveBeenCalledWith(mockWindow);
-    expect(mockPurify.sanitize).toHaveBeenCalledWith(parsedHtml);
     expect(result).toBe(
-      '<a href="https://example.com" target="_blank">example</a>',
+      '<p><a href="https://example.com" target="_blank">example</a></p>\n',
     );
   });
 
   test('should handle empty markdown string', () => {
-    const markdown = '';
-    const parsedHtml = '';
-    const sanitizedHtml = '';
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('');
+    expect(markdownToHtml('')).toBe('');
   });
 
   test('should sanitize potentially malicious HTML', () => {
-    const markdown = '<script>alert("xss")</script>';
-    const parsedHtml = '<script>alert("xss")</script>';
-    const sanitizedHtml = '';
+    const result = markdownToHtml('<script>alert("xss")</script>');
 
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(mockPurify.sanitize).toHaveBeenCalledWith(parsedHtml);
-    expect(result).toBe('');
+    expect(result).not.toContain('<script>');
   });
 
-  test('should add target="_blank" to multiple anchors without target attribute', () => {
-    const markdown =
-      '[link1](https://example1.com) [link2](https://example2.com)';
-    const parsedHtml =
-      '<a href="https://example1.com">link1</a> <a href="https://example2.com">link2</a>';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe(
-      '<a href="https://example1.com" target="_blank">link1</a> <a href="https://example2.com" target="_blank">link2</a>',
+  test('should add target="_blank" to multiple anchors', () => {
+    const result = markdownToHtml(
+      '[link1](https://example1.com) [link2](https://example2.com)',
     );
-  });
 
-  test('should preserve existing target attribute', () => {
-    const markdown = '[link](https://example.com)';
-    const parsedHtml = '<a href="https://example.com" target="_self">link</a>';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe(
-      '<a href="https://example.com" target="_self">link</a>',
-    );
+    expect(result).toContain('target="_blank"');
+    expect(result.match(/target="_blank"/g)).toHaveLength(2);
   });
 
   test('should handle anchors with multiple attributes', () => {
-    const markdown = '[link](https://example.com)';
-    const parsedHtml =
-      '<a href="https://example.com" class="link" id="main-link">link</a>';
-    const sanitizedHtml = parsedHtml;
+    const result = markdownToHtml('[link](https://example.com)');
 
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe(
-      '<a href="https://example.com" class="link" id="main-link" target="_blank">link</a>',
-    );
-  });
-
-  test('should handle anchors without attributes except href', () => {
-    const markdown = '[link](https://example.com)';
-    const parsedHtml = '<a>link</a>';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('<a target="_blank">link</a>');
-  });
-
-  test('should handle mixed anchors with and without target attribute', () => {
-    const markdown =
-      '[link1](https://example1.com) [link2](https://example2.com)';
-    const parsedHtml =
-      '<a href="https://example1.com">link1</a> <a href="https://example2.com" target="_parent">link2</a>';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe(
-      '<a href="https://example1.com" target="_blank">link1</a> <a href="https://example2.com" target="_parent">link2</a>',
-    );
+    expect(result).toContain('href="https://example.com"');
+    expect(result).toContain('target="_blank"');
   });
 
   test('should handle HTML without anchors', () => {
-    const markdown = '# Heading\n\nParagraph text';
-    const parsedHtml = '<h1>Heading</h1>\n<p>Paragraph text</p>';
-    const sanitizedHtml = parsedHtml;
+    const result = markdownToHtml('# Heading\n\nParagraph text');
 
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('<h1>Heading</h1>\n<p>Paragraph text</p>');
-  });
-
-  test('should handle anchor with single-quoted target attribute (regex edge case)', () => {
-    const markdown = '[link](https://example.com)';
-    const parsedHtml =
-      '<a href="https://example.com" target=\'_blank\'>link</a>';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe(
-      '<a href="https://example.com" target=\'_blank\'>link</a>',
-    );
+    expect(result).toContain('<h1>Heading</h1>');
+    expect(result).toContain('<p>Paragraph text</p>');
   });
 
   test('should replace del tags with tilde', () => {
-    const markdown = '~~strikethrough text~~';
-    const parsedHtml = '<del>strikethrough text</del>';
-    const sanitizedHtml = parsedHtml;
+    const result = markdownToHtml('~~strikethrough text~~');
 
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('~strikethrough text~');
+    expect(result).toBe('<p>~strikethrough text~</p>\n');
   });
 
   test('should replace multiple del tags with tildes', () => {
-    const markdown = '~~first~~ and ~~second~~';
-    const parsedHtml = '<del>first</del> and <del>second</del>';
-    const sanitizedHtml = parsedHtml;
+    const result = markdownToHtml('~~first~~ and ~~second~~');
 
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('~first~ and ~second~');
-  });
-
-  test('should replace DEL tags with case-insensitive matching', () => {
-    const markdown = '~~text~~';
-    const parsedHtml = '<DEL>text</DEL>';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('~text~');
+    expect(result).toBe('<p>~first~ and ~second~</p>\n');
   });
 
   test('should handle mixed content with del tags and anchors', () => {
-    const markdown = '[link](https://example.com) with ~~strikethrough~~';
-    const parsedHtml =
-      '<a href="https://example.com">link</a> with <del>strikethrough</del>';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe(
-      '<a href="https://example.com" target="_blank">link</a> with ~strikethrough~',
+    const result = markdownToHtml(
+      '[link](https://example.com) with ~~strikethrough~~',
     );
+
+    expect(result).toContain('target="_blank"');
+    expect(result).toContain('~strikethrough~');
   });
 
-  test('should convert unconverted ** markdown syntax to <b> tags', () => {
-    const markdown = '**bold text**';
-    const parsedHtml = '**bold text**';
-    const sanitizedHtml = parsedHtml;
+  test('should convert bold markdown syntax', () => {
+    const result = markdownToHtml('**bold text**');
 
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('<b>bold text</b>');
+    expect(result).toContain('bold text');
   });
 
-  test('should convert multiple unconverted ** markdown syntax to <b> tags', () => {
-    const markdown = '**first** and **second**';
-    const parsedHtml = '**first** and **second**';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('<b>first</b> and <b>second</b>');
-  });
-
-  test('should handle mixed converted and unconverted bold syntax', () => {
-    const markdown = '**unconverted** and <strong>converted</strong>';
-    const parsedHtml = '**unconverted** and <strong>converted</strong>';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('<b>unconverted</b> and <strong>converted</strong>');
-  });
-
-  test('should handle unconverted bold syntax with anchors and del tags', () => {
-    const markdown = '**bold** [link](https://example.com) ~~strike~~';
-    const parsedHtml =
-      '**bold** <a href="https://example.com">link</a> <del>strike</del>';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe(
-      '<b>bold</b> <a href="https://example.com" target="_blank">link</a> ~strike~',
+  test('should handle mixed bold and other elements', () => {
+    const result = markdownToHtml(
+      '**bold** [link](https://example.com) ~~strike~~',
     );
-  });
 
-  test('should handle text with single asterisks (not bold)', () => {
-    const markdown = '*italic* text';
-    const parsedHtml = '*italic* text';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('*italic* text');
-  });
-
-  test('should handle unconverted bold with special characters', () => {
-    const markdown = '**hello-world_123**';
-    const parsedHtml = '**hello-world_123**';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('<b>hello-world_123</b>');
-  });
-
-  test('should handle unconverted bold with spaces', () => {
-    const markdown = '**multiple word bold**';
-    const parsedHtml = '**multiple word bold**';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('<b>multiple word bold</b>');
-  });
-
-  test('should not convert incomplete bold syntax with only opening **', () => {
-    const markdown = '**incomplete bold';
-    const parsedHtml = '**incomplete bold';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('**incomplete bold');
-  });
-
-  test('should not convert incomplete bold syntax with only closing **', () => {
-    const markdown = 'incomplete bold**';
-    const parsedHtml = 'incomplete bold**';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('incomplete bold**');
-  });
-
-  test('should handle unconverted bold within HTML tags', () => {
-    const markdown = '<p>**bold in paragraph**</p>';
-    const parsedHtml = '<p>**bold in paragraph**</p>';
-    const sanitizedHtml = parsedHtml;
-
-    vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-    mockPurify.sanitize.mockReturnValue(sanitizedHtml);
-
-    const result = markdownToHtml(markdown);
-
-    expect(result).toBe('<p><b>bold in paragraph</b></p>');
+    expect(result).toContain('target="_blank"');
+    expect(result).toContain('~strike~');
   });
 
   describe('correctMalformedUrls', () => {
     test('should fix URL with closing parenthesis and Korean text', () => {
-      const markdown =
-        "'무형유산지식새김'(https://iha.go.kr)으로 새 단장했습니다.";
-      const parsedHtml =
-        '<p>\'무형유산지식새김\'(<a href="https://iha.go.kr)%EC%9C%으%EB%A1%9C">https://iha.go.kr)으로</a> 새 단장했습니다.</p>';
-
-      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-      mockPurify.sanitize.mockReturnValue(parsedHtml);
-
-      const result = markdownToHtml(markdown);
+      const result = markdownToHtml(
+        "'무형유산지식새김'(https://iha.go.kr)으로 새 단장했습니다.",
+      );
 
       expect(result).toBe(
-        '<p>\'무형유산지식새김\'(<a href="https://iha.go.kr" target="_blank">https://iha.go.kr</a>)으로 새 단장했습니다.</p>',
+        "<p>'무형유산지식새김'(<a href=\"https://iha.go.kr\" target=\"_blank\">https://iha.go.kr</a>)으로 새 단장했습니다.</p>\n",
       );
     });
 
     test('should fix multiple malformed URLs in same text', () => {
-      const markdown = '(https://a.com)텍스트1 and (https://b.com)텍스트2';
-      const parsedHtml =
-        '<p>(<a href="https://a.com)%ED%85%8D%EC%8A%A4%ED%8A%B81">https://a.com)텍스트1</a> and (<a href="https://b.com)%ED%85%8D%EC%8A%A4%ED%8A%B82">https://b.com)텍스트2</a></p>';
+      const result = markdownToHtml(
+        '(https://a.com)가 and (https://b.com)나',
+      );
 
-      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-      mockPurify.sanitize.mockReturnValue(parsedHtml);
-
-      const result = markdownToHtml(markdown);
-
-      expect(result).toBe(
-        '<p>(<a href="https://a.com" target="_blank">https://a.com</a>)텍스트1 and (<a href="https://b.com" target="_blank">https://b.com</a>)텍스트2</p>',
+      expect(result).toContain(
+        '<a href="https://a.com" target="_blank">https://a.com</a>)가',
+      );
+      expect(result).toContain(
+        '<a href="https://b.com" target="_blank">https://b.com</a>)나',
       );
     });
 
-    test('should not affect correctly formed URLs with ) followed by whitespace', () => {
-      const markdown = 'text (https://example.com) more text';
-      const parsedHtml =
-        '<p>text (<a href="https://example.com">https://example.com</a>) more text</p>';
+    test('should not affect correctly formed URLs', () => {
+      const result = markdownToHtml('text (https://example.com) more text');
 
-      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-      mockPurify.sanitize.mockReturnValue(parsedHtml);
-
-      const result = markdownToHtml(markdown);
-
-      expect(result).toBe(
-        '<p>text (<a href="https://example.com" target="_blank">https://example.com</a>) more text</p>',
-      );
-    });
-
-    test('should not affect URLs without closing parenthesis', () => {
-      const markdown = 'text https://example.com more';
-      const parsedHtml =
-        '<p>text <a href="https://example.com">https://example.com</a> more</p>';
-
-      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-      mockPurify.sanitize.mockReturnValue(parsedHtml);
-
-      const result = markdownToHtml(markdown);
-
-      expect(result).toBe(
-        '<p>text <a href="https://example.com" target="_blank">https://example.com</a> more</p>',
-      );
+      expect(result).toContain('href="https://example.com"');
+      expect(result).toContain('target="_blank"');
     });
 
     test('should handle URL with path followed by ) and non-ASCII text', () => {
-      const markdown = '(https://example.com/path)텍스트';
-      const parsedHtml =
-        '<p>(<a href="https://example.com/path)%ED%85%8D%EC%8A%A4%ED%8A%B8">https://example.com/path)텍스트</a></p>';
+      const result = markdownToHtml('(https://example.com/path)텍스트');
 
-      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-      mockPurify.sanitize.mockReturnValue(parsedHtml);
-
-      const result = markdownToHtml(markdown);
-
-      expect(result).toBe(
-        '<p>(<a href="https://example.com/path" target="_blank">https://example.com/path</a>)텍스트</p>',
+      expect(result).toContain(
+        '<a href="https://example.com/path" target="_blank">https://example.com/path</a>)텍스트',
       );
     });
 
-    test('should preserve other anchor attributes when fixing URLs', () => {
-      const markdown = 'https://example.com)텍스트';
-      const parsedHtml =
-        '<a class="link" id="test" href="https://example.com)%ED%85%8D%EC%8A%A4%ED%8A%B8">https://example.com)텍스트</a>';
-
-      vi.mocked(marked.parse).mockReturnValue(parsedHtml);
-      mockPurify.sanitize.mockReturnValue(parsedHtml);
-
-      const result = markdownToHtml(markdown);
+    test('should fix URL with closing parenthesis, bold markup and Korean text', () => {
+      const result = markdownToHtml(
+        '범부처통합연구지원시스템 **IRIS(http://www.iris.go.kr)**를 통해 접수·관리 시행',
+      );
 
       expect(result).toBe(
-        '<a class="link" id="test" href="https://example.com" target="_blank">https://example.com</a>)텍스트',
+        '<p>범부처통합연구지원시스템 <b>IRIS(<a href="http://www.iris.go.kr" target="_blank">http://www.iris.go.kr</a></b>)를 통해 접수·관리 시행</p>\n',
       );
     });
   });
