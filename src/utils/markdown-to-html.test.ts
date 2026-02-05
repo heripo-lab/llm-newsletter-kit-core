@@ -95,14 +95,12 @@ describe('markdownToHtml', () => {
       );
 
       expect(result).toBe(
-        "<p>'무형유산지식새김'(<a href=\"https://iha.go.kr\" target=\"_blank\">https://iha.go.kr</a>)으로 새 단장했습니다.</p>\n",
+        '<p>\'무형유산지식새김\'(<a href="https://iha.go.kr" target="_blank">https://iha.go.kr</a>)으로 새 단장했습니다.</p>\n',
       );
     });
 
     test('should fix multiple malformed URLs in same text', () => {
-      const result = markdownToHtml(
-        '(https://a.com)가 and (https://b.com)나',
-      );
+      const result = markdownToHtml('(https://a.com)가 and (https://b.com)나');
 
       expect(result).toContain(
         '<a href="https://a.com" target="_blank">https://a.com</a>)가',
