@@ -2,8 +2,15 @@ import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import { marked } from 'marked';
 
+function preprocessBoldSyntax(markdown: string): string {
+  // Convert **text** to <strong>text</strong> before marked parsing
+  // This fixes issues where marked doesn't properly handle bold syntax with parentheses
+  return markdown.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
 function markdownToHtml(markdown: string): string {
-  const html = marked.parse(markdown) as string;
+  const preprocessed = preprocessBoldSyntax(markdown);
+  const html = marked.parse(preprocessed) as string;
 
   const window = new JSDOM('').window;
   const purify = DOMPurify(window);

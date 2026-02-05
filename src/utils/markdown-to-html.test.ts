@@ -78,6 +78,16 @@ describe('markdownToHtml', () => {
     expect(result).toContain('~strike~');
   });
 
+  test('should handle bold syntax with parentheses', () => {
+    const result = markdownToHtml(
+      '동일 사업에 대해 **사업자 공모(민간위탁)**와 **제안서 평가위원(후보자) 모집**이 함께 진행되고 있습니다.',
+    );
+
+    expect(result).toContain('<strong>사업자 공모(민간위탁)</strong>');
+    expect(result).toContain('<strong>제안서 평가위원(후보자) 모집</strong>');
+    expect(result).not.toContain('**');
+  });
+
   describe('correctMalformedUrls', () => {
     test('should fix URL with closing parenthesis and Korean text', () => {
       const result = markdownToHtml(
@@ -123,7 +133,7 @@ describe('markdownToHtml', () => {
       );
 
       expect(result).toBe(
-        '<p>범부처통합연구지원시스템 <b>IRIS(<a href="http://www.iris.go.kr" target="_blank">http://www.iris.go.kr</a></b>)를 통해 접수·관리 시행</p>\n',
+        '<p>범부처통합연구지원시스템 <strong>IRIS(<a href="http://www.iris.go.kr" target="_blank">http://www.iris.go.kr</a>)</strong>를 통해 접수·관리 시행</p>\n',
       );
     });
   });
