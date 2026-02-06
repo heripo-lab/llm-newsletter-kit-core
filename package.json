@@ -41,7 +41,9 @@
     "lint:fix": "eslint --fix ./src",
     "lint:ci": "eslint --quiet ./src",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md,mdx}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md,mdx}\"",
+    "playground": "tsx",
+    "playground:generate-newsletter": "tsx playground/generate-newsletter.ts"
   },
   "author": "kimhongyeon",
   "license": "Apache-2.0",
@@ -56,6 +58,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@ai-sdk/anthropic": "^3.0.38",
+    "@ai-sdk/google": "^3.0.22",
+    "@ai-sdk/openai": "^3.0.25",
+    "@ai-sdk/togetherai": "^2.0.31",
     "@eslint/js": "^9.39.2",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/jsdom": "^27.0.0",
@@ -69,6 +75,7 @@
     "rollup": "^4.57.1",
     "rollup-plugin-dts": "^6.3.0",
     "rollup-plugin-typescript2": "^0.36.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",
     "vitest": "^3.2.4"
