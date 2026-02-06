@@ -10,6 +10,19 @@ export type ContentOptions = {
    * @example ["AI", "Cloud"]
    */
   expertField: string | string[];
+
+  /**
+   * When true, removes the fixed date+field heading directive
+   * and moves the brief introduction into the briefing section.
+   */
+  freeFormIntro?: boolean;
+
+  /**
+   * Context string to prioritize when generating the newsletter title.
+   * When provided, the LLM will consider this value as the top priority
+   * along with the generated newsletter content for title creation.
+   */
+  titleContext?: string;
 };
 
 export type LLMQueryOptions = {

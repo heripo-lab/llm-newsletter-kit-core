@@ -199,6 +199,83 @@ describe('GenerateNewsletter.execute', () => {
     expect(res).toEqual({ title: longTitle, content: 'Accurate' });
   });
 
+  test('freeFormIntro=true removes intro from Start, adds Brief Introduction to Briefing, removes heading directive', async () => {
+    mockObjectOnce({
+      title: longTitle,
+      content: 'Free form content',
+      isWrittenInOutputLanguage: true,
+      copyrightVerified: true,
+      factAccuracy: true,
+    });
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({
+        options: {
+          content: {
+            outputLanguage: 'English',
+            expertField: ['AI', 'Robotics'],
+            freeFormIntro: true,
+          },
+          llm: { maxRetries: 3 },
+        },
+      }),
+    );
+
+    await instance.execute();
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+
+    // Start section should NOT contain the brief intro text
+    expect(callArg.system).toContain('begin with neutral, objective greeting.');
+    expect(callArg.system).not.toContain(
+      "begin with neutral, objective greeting. Briefly introduce key factual information to be covered in today's newsletter.",
+    );
+
+    // Briefing section should contain Brief Introduction sub-bullet
+    expect(callArg.system).toContain(
+      "- Brief Introduction: Briefly introduce key factual information to be covered in today's newsletter.",
+    );
+
+    // Additional Requirements should NOT contain the fixed heading directive
+    expect(callArg.system).not.toContain(
+      'Declare this part as `Heading 1`(#).',
+    );
+  });
+
+  test('titleContext is included in Title Writing Guidelines when provided', async () => {
+    mockObjectOnce({
+      title: longTitle,
+      content: 'Title context content',
+      isWrittenInOutputLanguage: true,
+      copyrightVerified: true,
+      factAccuracy: true,
+    });
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({
+        options: {
+          content: {
+            outputLanguage: 'English',
+            expertField: ['AI', 'Robotics'],
+            titleContext: 'Weekly AI Research Digest',
+          },
+          llm: { maxRetries: 3 },
+        },
+      }),
+    );
+
+    await instance.execute();
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+
+    expect(callArg.system).toContain(
+      '**Top priority context for title**: "Weekly AI Research Digest"',
+    );
+    expect(callArg.system).toContain(
+      'Use this as the primary reference when crafting the title',
+    );
+  });
+
   test('uses provided sampling/penalty options and omits subscribe link when not given', async () => {
     mockObjectOnce({
       title: longTitle,

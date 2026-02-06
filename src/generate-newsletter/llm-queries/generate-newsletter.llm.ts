@@ -81,7 +81,7 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
   }
 
   public async execute(): Promise<ReturnType> {
-    const { output } = await generateText({
+    const { output, totalUsage } = await generateText({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
       maxOutputTokens: this.maxOutputTokens,
@@ -164,11 +164,11 @@ Copyright Protection & Fact-Checking Principles:
 Output Format & Requirements:
 1. Language: ${this.options.content.outputLanguage}
 
-2. Start: Specify date (${this.dateService.getDisplayDateString()}) and begin with neutral, objective greeting. Briefly introduce key factual information to be covered in today's newsletter.
+2. Start: Specify date (${this.dateService.getDisplayDateString()}) and begin with neutral, objective greeting.${this.options.content.freeFormIntro ? '' : " Briefly introduce key factual information to be covered in today's newsletter."}
 
 3. Overall Briefing: Before the main listing, create a briefing section conveying objective facts about today's news in these aspects:
    - Key Trends: Explain major patterns or trends found in this news based on data. Ex: 'Over 00% of today's news relates to 00'.
-   - Immediate Impact: Emphasize most important changes or decisions affecting industry immediately, specifically mentioning which fields will be most impacted.
+   - Immediate Impact: Emphasize most important changes or decisions affecting industry immediately, specifically mentioning which fields will be most impacted.${this.options.content.freeFormIntro ? "\n   - Brief Introduction: Briefly introduce key factual information to be covered in today's newsletter." : ''}
 
 4. Category Classification & Content Organization:
    - Group news by logical categories based on related tags and content (e.g., Policy/Regulation, Budget/Support, Research/Development, Products/Services, Operations/Process, Recruitment/Events) rather than just listing by importance.
@@ -211,7 +211,7 @@ Output Format & Requirements:
    - Do not write preview or anticipatory messages about next newsletter.
    - Do not include contact information for inquiries.
 
-7. Title Writing Guidelines:
+7. Title Writing Guidelines:${this.options.content.titleContext ? `\n   - **Top priority context for title**: "${this.options.content.titleContext}". Use this as the primary reference when crafting the title, while also reflecting the generated newsletter content.` : ''}
    - Title should objectively convey core facts of 1-2 most important news items today.
    - Write with key facts rather than simple "Newsletter", more effective with specific figures or schedules.
    - Use neutral and objective terms in title (e.g., 'announced', 'implementing', 'deadline approaching').
@@ -221,8 +221,7 @@ Output Format & Requirements:
 
 8. Additional Requirements:
    - Comprehensively analyze posts to create email containing most important information for ${this.expertFields.join(', ')} field experts.
-   - Naturally include date at beginning in the format: "${this.dateService.getDisplayDateString()} ${this.expertFields.join(', ')} [News Term]". Replace [News Term] with the word for "News" appropriate for the output language (e.g., "News" for English, "소식" for Korean). Declare this part as \`Heading 1\`(#).
-   - Write body in markdown format, effectively using headings(#, ##, ###), bold(**), italics(_), bullet points(-, *) etc. to improve readability.
+   ${this.options.content.freeFormIntro ? '' : `- Naturally include date at beginning in the format: "${this.dateService.getDisplayDateString()} ${this.expertFields.join(', ')} [News Term]". Replace [News Term] with the word for "News" appropriate for the output language (e.g., "News" for English, "소식" for Korean). Declare this part as \`Heading 1\`(#).\n   `}- Write body in markdown format, effectively using headings(#, ##, ###), bold(**), italics(_), bullet points(-, *) etc. to improve readability.
    - Group related news to provide broader context, and mention development status if there's continuity with content covered in previous issues.
    - **Source citation is most important for ensuring credibility.** Must provide links in [original title](URL) format using source's title. Do not write as "View", "Article", "[Post3](URL)" format.
    - Specify source whenever article titles or content are quoted in newsletter, ensure all information is provided with links.
