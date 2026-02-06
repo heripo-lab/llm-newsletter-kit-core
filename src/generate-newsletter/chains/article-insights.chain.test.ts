@@ -67,11 +67,16 @@ vi.mock('./chain', () => {
 });
 
 // LLM mocks defined entirely inside factory to avoid hoist issues
+const wrapResult = (r: any) => ({ result: r, usage: {} });
+
 vi.mock('../llm-queries/classify-tags.llm', () => {
   const queue: Array<() => Promise<any>> = [];
   const executeFn = vi.fn(async () => {
-    if (queue.length) return queue.shift()!();
-    return undefined as any;
+    if (queue.length) {
+      const r = await queue.shift()!();
+      return { result: r, usage: {} };
+    }
+    return { result: undefined, usage: {} } as any;
   });
   const Ctor = vi.fn().mockImplementation(() => ({ execute: executeFn }));
   (Ctor as any).__setQueue = (q: Array<() => Promise<any>>) => {
@@ -85,8 +90,11 @@ vi.mock('../llm-queries/classify-tags.llm', () => {
 vi.mock('../llm-queries/analyze-images.llm', () => {
   const queue: Array<() => Promise<any>> = [];
   const executeFn = vi.fn(async () => {
-    if (queue.length) return queue.shift()!();
-    return undefined as any;
+    if (queue.length) {
+      const r = await queue.shift()!();
+      return { result: r, usage: {} };
+    }
+    return { result: undefined, usage: {} } as any;
   });
   const Ctor = vi.fn().mockImplementation(() => ({ execute: executeFn }));
   (Ctor as any).__setQueue = (q: Array<() => Promise<any>>) => {
@@ -100,8 +108,11 @@ vi.mock('../llm-queries/analyze-images.llm', () => {
 vi.mock('../llm-queries/determine-article-importance.llm', () => {
   const queue: Array<() => Promise<any>> = [];
   const executeFn = vi.fn(async () => {
-    if (queue.length) return queue.shift()!();
-    return undefined as any;
+    if (queue.length) {
+      const r = await queue.shift()!();
+      return { result: r, usage: {} };
+    }
+    return { result: undefined, usage: {} } as any;
   });
   const Ctor = vi.fn().mockImplementation(() => ({ execute: executeFn }));
   (Ctor as any).__setQueue = (q: Array<() => Promise<any>>) => {
@@ -515,7 +526,7 @@ describe('ArticleInsightsChain', () => {
     (ClassifyTags as any).mockImplementationOnce(() => ({
       execute: vi
         .fn()
-        .mockResolvedValue({ tag1: 'n1', tag2: 'n2', tag3: 'n3' }),
+        .mockResolvedValue(wrapResult({ tag1: 'n1', tag2: 'n2', tag3: 'n3' })),
     }));
     // For third article: throw
     (ClassifyTags as any).mockImplementationOnce(() => ({
@@ -569,10 +580,10 @@ describe('ArticleInsightsChain', () => {
   test('extractImageContext: covers success, noimage, exist, and error branches', async () => {
     // Each AnalyzeImages instance should have custom execute behavior
     (AnalyzeImages as any).mockImplementationOnce(() => ({
-      execute: vi.fn().mockResolvedValue('ctx1'),
+      execute: vi.fn().mockResolvedValue(wrapResult('ctx1')),
     })); // a1
     (AnalyzeImages as any).mockImplementationOnce(() => ({
-      execute: vi.fn().mockResolvedValue(null),
+      execute: vi.fn().mockResolvedValue(wrapResult(null)),
     })); // a2 -> end.noimage
     (AnalyzeImages as any).mockImplementationOnce(() => ({
       execute: vi.fn().mockRejectedValue(new Error('boom')),
@@ -818,7 +829,7 @@ test('generateInsights keeps original article when reprocess returns no matching
 test('determineImportance success path: end logging errors are swallowed and result is preserved', async () => {
   // Make DetermineArticleImportance.resolve successfully
   (DetermineArticleImportance as any).mockImplementationOnce(() => ({
-    execute: vi.fn().mockResolvedValue(9),
+    execute: vi.fn().mockResolvedValue(wrapResult(9)),
   }));
 
   // Logger throws only on the success end event to hit inner try/catch

@@ -13,7 +13,7 @@ vi.mock('../llm-queries/generate-newsletter.llm', () => {
       calls.push(config);
     }
     async execute() {
-      return nextResult;
+      return { result: nextResult, usage: {} };
     }
     static __setExecuteResult(r: any) {
       nextResult = r;

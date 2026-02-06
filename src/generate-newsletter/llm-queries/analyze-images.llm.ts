@@ -3,9 +3,25 @@ import type { UnscoredArticle } from '../models/article';
 import { Output, generateText } from 'ai';
 import { z } from 'zod';
 
-import { LLMQuery, type LLMQueryConfig } from './llm-query';
+import {
+  LLMQuery,
+  type LLMQueryConfig,
+  type LLMQueryExecuteResult,
+} from './llm-query';
 
 type ReturnType = string | null;
+
+const ZERO_USAGE = {
+  inputTokens: undefined,
+  inputTokenDetails: {
+    noCacheTokens: undefined,
+    cacheReadTokens: undefined,
+    cacheWriteTokens: undefined,
+  },
+  outputTokens: undefined,
+  outputTokenDetails: { textTokens: undefined, reasoningTokens: undefined },
+  totalTokens: undefined,
+} as const;
 
 export default class AnalyzeImages<TaskId> extends LLMQuery<
   TaskId,
@@ -25,19 +41,19 @@ export default class AnalyzeImages<TaskId> extends LLMQuery<
     super(config);
   }
 
-  public async execute() {
+  public async execute(): Promise<LLMQueryExecuteResult<ReturnType>> {
     if (
       !this.targetArticle.hasAttachedImage ||
       !this.targetArticle.detailContent
     ) {
-      return null;
+      return { result: null, usage: ZERO_USAGE };
     }
 
     if (this.imageMessages.length === 0) {
-      return null;
+      return { result: null, usage: ZERO_USAGE };
     }
 
-    const { output } = await generateText({
+    const { output, usage } = await generateText({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
       output: Output.object({
@@ -52,7 +68,7 @@ export default class AnalyzeImages<TaskId> extends LLMQuery<
       ],
     });
 
-    return output.imageContext;
+    return { result: output.imageContext, usage };
   }
 
   private get systemPrompt(): string {

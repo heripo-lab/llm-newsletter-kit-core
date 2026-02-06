@@ -8,7 +8,11 @@ import type { UrlString } from '~/models/common';
 import type { DateService } from '~/models/interfaces';
 import type { Newsletter } from '~/models/newsletter';
 
-import { BaseLLMQuery, type BaseLLMQueryConfig } from './llm-query';
+import {
+  BaseLLMQuery,
+  type BaseLLMQueryConfig,
+  type LLMQueryExecuteResult,
+} from './llm-query';
 
 type Config<TaskId> = BaseLLMQueryConfig<TaskId> & {
   maxOutputTokens?: number;
@@ -80,8 +84,8 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
     this.newsletterBrandName = config.newsletterBrandName;
   }
 
-  public async execute(): Promise<ReturnType> {
-    const { output, totalUsage } = await generateText({
+  public async execute(): Promise<LLMQueryExecuteResult<ReturnType>> {
+    const { output, usage } = await generateText({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
       maxOutputTokens: this.maxOutputTokens,
@@ -109,7 +113,7 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
       return this.execute();
     }
 
-    return pick(output, ['title', 'content']);
+    return { result: pick(output, ['title', 'content']), usage };
   }
 
   private get systemPrompt(): string {

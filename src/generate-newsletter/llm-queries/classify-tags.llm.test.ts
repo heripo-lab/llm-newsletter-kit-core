@@ -37,11 +37,16 @@ describe('ClassifyTags', () => {
 
     const existTags = ['NLP', 'Machine Learning'];
     const expected = { tag1: 'NLP', tag2: 'Deployment', tag3: 'Transformers' };
-    vi.mocked(generateText).mockResolvedValue({ output: expected } as any);
+    const stubUsage = { inputTokens: 5, outputTokens: 10, totalTokens: 15 };
+    vi.mocked(generateText).mockResolvedValue({
+      output: expected,
+      usage: stubUsage,
+    } as any);
 
     const result = await query.execute({ existTags });
 
-    expect(result).toEqual(expected);
+    expect(result.result).toEqual(expected);
+    expect(result.usage).toEqual(stubUsage);
     expect(generateText).toHaveBeenCalledTimes(1);
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;

@@ -31,7 +31,7 @@ export default class ClassifyTags<TaskId> extends LLMQuery<
   public async execute({ existTags }: Params) {
     this.existTags = existTags;
 
-    const { output } = await generateText({
+    const { output, usage } = await generateText({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
       output: Output.object({
@@ -41,7 +41,7 @@ export default class ClassifyTags<TaskId> extends LLMQuery<
       prompt: this.userPrompt,
     });
 
-    return output;
+    return { result: output, usage };
   }
 
   private get systemPrompt(): string {

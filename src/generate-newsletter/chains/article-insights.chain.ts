@@ -184,7 +184,9 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
               ),
             );
 
-            const generatedTags = await classifyTags.execute({ existTags });
+            const { result: generatedTags } = await classifyTags.execute({
+              existTags,
+            });
 
             pushTag(generatedTags.tag1);
             pushTag(generatedTags.tag2);
@@ -277,7 +279,7 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
               ),
             );
 
-            const imageContextByLlm = await analyzeImages.execute();
+            const { result: imageContextByLlm } = await analyzeImages.execute();
 
             if (imageContextByLlm) {
               articlesWithImageContext.push({
@@ -405,7 +407,8 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
               dateService: this.dateService,
             });
 
-            const importanceScore = await determineArticleImportance.execute();
+            const { result: importanceScore } =
+              await determineArticleImportance.execute();
 
             const processedArticle = {
               ...article,

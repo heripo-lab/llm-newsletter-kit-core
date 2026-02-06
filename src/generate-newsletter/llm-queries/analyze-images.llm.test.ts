@@ -37,7 +37,7 @@ describe('AnalyzeImages', () => {
     });
   };
 
-  test('returns null when article has no attached image', async () => {
+  test('returns null with zero usage when article has no attached image', async () => {
     const query = buildQuery({
       targetArticle: {
         title: 't',
@@ -48,11 +48,12 @@ describe('AnalyzeImages', () => {
 
     const result = await query.execute();
 
-    expect(result).toBeNull();
+    expect(result.result).toBeNull();
+    expect(result.usage.totalTokens).toBeUndefined();
     expect(generateText).not.toHaveBeenCalled();
   });
 
-  test('returns null when article has no detail content', async () => {
+  test('returns null with zero usage when article has no detail content', async () => {
     const query = buildQuery({
       targetArticle: {
         title: 't',
@@ -63,11 +64,12 @@ describe('AnalyzeImages', () => {
 
     const result = await query.execute();
 
-    expect(result).toBeNull();
+    expect(result.result).toBeNull();
+    expect(result.usage.totalTokens).toBeUndefined();
     expect(generateText).not.toHaveBeenCalled();
   });
 
-  test('returns null when there are no image urls in content', async () => {
+  test('returns null with zero usage when there are no image urls in content', async () => {
     const query = buildQuery({
       targetArticle: {
         title: 't',
@@ -78,7 +80,8 @@ describe('AnalyzeImages', () => {
 
     const result = await query.execute();
 
-    expect(result).toBeNull();
+    expect(result.result).toBeNull();
+    expect(result.usage.totalTokens).toBeUndefined();
     expect(generateText).not.toHaveBeenCalled();
   });
 
@@ -103,13 +106,16 @@ describe('AnalyzeImages', () => {
     });
 
     const expectedContext = 'Comprehensive image-based insights.';
+    const stubUsage = { inputTokens: 50, outputTokens: 30, totalTokens: 80 };
     vi.mocked(generateText).mockResolvedValue({
       output: { imageContext: expectedContext },
+      usage: stubUsage,
     } as any);
 
     const result = await query.execute();
 
-    expect(result).toBe(expectedContext);
+    expect(result.result).toBe(expectedContext);
+    expect(result.usage).toEqual(stubUsage);
     expect(generateText).toHaveBeenCalledTimes(1);
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;

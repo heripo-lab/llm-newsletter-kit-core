@@ -46,13 +46,16 @@ describe('DetermineArticleImportance', () => {
       },
     });
 
+    const stubUsage = { inputTokens: 8, outputTokens: 4, totalTokens: 12 };
     vi.mocked(generateText).mockResolvedValue({
       output: { importanceScore: 7 },
+      usage: stubUsage,
     } as any);
 
     const result = await query.execute();
 
-    expect(result).toBe(7);
+    expect(result.result).toBe(7);
+    expect(result.usage).toEqual(stubUsage);
     expect(generateText).toHaveBeenCalledTimes(1);
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
@@ -143,12 +146,13 @@ describe('DetermineArticleImportance', () => {
 
     vi.mocked(generateText).mockResolvedValue({
       output: { importanceScore: 9 },
+      usage: {},
     } as any);
 
     const date = '2024-05-10T08:00:00.000Z';
     const result = await query.execute();
 
-    expect(result).toBe(9);
+    expect(result.result).toBe(9);
     expect(generateText).toHaveBeenCalledTimes(1);
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
@@ -228,12 +232,13 @@ describe('DetermineArticleImportance - fallbacks', () => {
 
     vi.mocked((await import('ai')).generateText).mockResolvedValue({
       output: { importanceScore: 3 },
+      usage: {},
     } as any);
 
     const date = '2024-06-15T12:30:00.000Z';
     const result = await query.execute();
 
-    expect(result).toBe(3);
+    expect(result.result).toBe(3);
 
     const callArg = vi.mocked((await import('ai')).generateText).mock
       .calls[0][0] as any;

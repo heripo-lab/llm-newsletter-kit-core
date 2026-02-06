@@ -59,8 +59,23 @@ function buildConfig(overrides: Partial<Record<string, any>> = {}) {
   return { ...base, ...overrides } as any;
 }
 
+const stubUsage = {
+  inputTokens: 10,
+  inputTokenDetails: {
+    noCacheTokens: undefined,
+    cacheReadTokens: undefined,
+    cacheWriteTokens: undefined,
+  },
+  outputTokens: 20,
+  outputTokenDetails: { textTokens: undefined, reasoningTokens: undefined },
+  totalTokens: 30,
+};
+
 function mockObjectOnce(obj: any) {
-  vi.mocked(generateText).mockResolvedValueOnce({ output: obj } as any);
+  vi.mocked(generateText).mockResolvedValueOnce({
+    output: obj,
+    usage: stubUsage,
+  } as any);
 }
 
 describe('GenerateNewsletter.execute', () => {
@@ -125,9 +140,13 @@ describe('GenerateNewsletter.execute', () => {
       }),
     ).not.toThrow();
 
-    // result should only include title and content (picked)
-    expect(result).toEqual({ title: longTitle, content: 'Body markdown' });
-    expect((result as any).extra).toBeUndefined();
+    // result should only include title and content (picked), with usage
+    expect(result.result).toEqual({
+      title: longTitle,
+      content: 'Body markdown',
+    });
+    expect((result.result as any).extra).toBeUndefined();
+    expect(result.usage).toEqual(stubUsage);
   });
 
   test('retries when isWrittenInOutputLanguage is false on first attempt', async () => {
@@ -150,7 +169,7 @@ describe('GenerateNewsletter.execute', () => {
     const res = await instance.execute();
 
     expect(generateText).toHaveBeenCalledTimes(2);
-    expect(res).toEqual({ title: longTitle, content: 'Good content' });
+    expect(res.result).toEqual({ title: longTitle, content: 'Good content' });
   });
 
   test('retries when copyrightVerified is false on first attempt', async () => {
@@ -173,7 +192,7 @@ describe('GenerateNewsletter.execute', () => {
     const res = await instance.execute();
 
     expect(generateText).toHaveBeenCalledTimes(2);
-    expect(res).toEqual({ title: longTitle, content: 'Good content 2' });
+    expect(res.result).toEqual({ title: longTitle, content: 'Good content 2' });
   });
 
   test('retries when factAccuracy is false on first attempt', async () => {
@@ -196,7 +215,7 @@ describe('GenerateNewsletter.execute', () => {
     const res = await instance.execute();
 
     expect(generateText).toHaveBeenCalledTimes(2);
-    expect(res).toEqual({ title: longTitle, content: 'Accurate' });
+    expect(res.result).toEqual({ title: longTitle, content: 'Accurate' });
   });
 
   test('freeFormIntro=true removes intro from Start, adds Brief Introduction to Briefing, removes heading directive', async () => {
