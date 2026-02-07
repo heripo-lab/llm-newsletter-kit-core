@@ -4,12 +4,13 @@ import type { RequiredHtmlTemplate } from '../models/template';
 
 import { RunnablePassthrough } from '@langchain/core/runnables';
 import { pick } from 'es-toolkit';
+import { JSDOM } from 'jsdom';
 import juice from 'juice';
+import safeMarkdown2Html from 'safe-markdown2html';
 
 import { LoggingExecutor } from '~/logging/logging-executor';
 import type { DateService } from '~/models/interfaces';
 import type { Newsletter } from '~/models/newsletter';
-import markdownToHtml from '~/utils/markdown-to-html';
 
 import GenerateNewsletter from '../llm-queries/generate-newsletter.llm';
 import { Chain, type ChainConfig } from './chain';
@@ -182,7 +183,13 @@ export default class ContentGenerateChain<TaskId> extends Chain<
           )
           .replaceAll(
             `{{${this.htmlTemplate.markers.content}}}`,
-            markdownToHtml(coreContent.content),
+            safeMarkdown2Html(coreContent.content, {
+              window: new JSDOM('').window,
+              linkTargetBlank: true,
+              fixMalformedUrls: true,
+              fixBoldSyntax: true,
+              convertStrikethrough: true,
+            }),
           );
       },
     );

@@ -1,16 +1,16 @@
-import { writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createTogetherAI } from '@ai-sdk/togetherai';
+import { JSDOM } from 'jsdom';
 import juice from 'juice';
+import { writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import safeMarkdown2Html from 'safe-markdown2html';
 
-import type { ArticleForGenerateContent } from '~/generate-newsletter/models/article';
 import GenerateNewsletter from '~/generate-newsletter/llm-queries/generate-newsletter.llm';
+import type { ArticleForGenerateContent } from '~/generate-newsletter/models/article';
 import { LoggingExecutor } from '~/logging/logging-executor';
-import markdownToHtml from '~/utils/markdown-to-html';
 
 import {
   DATA_DIR,
@@ -122,14 +122,21 @@ async function main() {
   const { result, usage } = await query.execute();
 
   console.log(`Title: ${result.title}`);
-  console.log(`Token usage: ${usage.inputTokens ?? 0} input / ${usage.outputTokens ?? 0} output / ${usage.totalTokens ?? 0} total\n`);
+  console.log(
+    `Token usage: ${usage.inputTokens ?? 0} input / ${usage.outputTokens ?? 0} output / ${usage.totalTokens ?? 0} total\n`,
+  );
 
   // 6. Convert markdown to HTML
-  const contentHtml = markdownToHtml(result.content);
+  const contentHtml = safeMarkdown2Html(result.content, {
+    window: new JSDOM('').window,
+    linkTargetBlank: true,
+    fixMalformedUrls: true,
+    fixBoldSyntax: true,
+    convertStrikethrough: true,
+  });
 
   // 7. Apply template markers
-  const { title: titleMarker, content: contentMarker } =
-    config.templateMarkers;
+  const { title: titleMarker, content: contentMarker } = config.templateMarkers;
   let renderedHtml = htmlTemplate
     .replace(`{{${titleMarker}}}`, result.title)
     .replace(`{{${contentMarker}}}`, contentHtml);
@@ -142,7 +149,11 @@ async function main() {
 
   const mdContent = `---\ntitle: "${result.title}"\n---\n\n${result.content}`;
   await writeFile(resolve(OUTPUT_DIR, 'newsletter.md'), mdContent, 'utf-8');
-  await writeFile(resolve(OUTPUT_DIR, 'newsletter.html'), renderedHtml, 'utf-8');
+  await writeFile(
+    resolve(OUTPUT_DIR, 'newsletter.html'),
+    renderedHtml,
+    'utf-8',
+  );
 
   // 10. Save usage report
   const usageMd = [
