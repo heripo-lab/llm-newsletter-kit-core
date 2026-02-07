@@ -1,4 +1,4 @@
-import type { LanguageModel } from 'ai';
+import type { LanguageModel, LanguageModelUsage } from 'ai';
 
 import type { UnscoredArticle } from '../models/article';
 import type { CommonProcessingOptions } from '../models/options';
@@ -8,6 +8,11 @@ import type { AppLogger } from '~/models/interfaces';
 import { ensureStringArray } from '~/utils/string';
 
 type Options = Pick<CommonProcessingOptions, 'content' | 'llm'>;
+
+export type LLMQueryExecuteResult<T> = {
+  result: T;
+  usage: LanguageModelUsage;
+};
 
 export type BaseLLMQueryConfig<TaskId> = {
   model: LanguageModel;
@@ -47,7 +52,7 @@ export abstract class BaseLLMQuery<
     );
   }
 
-  abstract execute(params: Params): Promise<ReturnType>;
+  abstract execute(params: Params): Promise<LLMQueryExecuteResult<ReturnType>>;
 }
 
 export abstract class LLMQuery<

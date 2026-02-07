@@ -1,0 +1,18 @@
+{
+  "provider": "openai",
+  "apiKey": "sk-your-openai-api-key",
+  "model": "gpt-4o-mini",
+  "outputLanguage": "English",
+  "expertField": ["AI", "Technology"],
+  "freeFormIntro": true,
+  "titleContext": "This Week's AI Trends",
+  "newsletterBrandName": "Tech Radar",
+  "subscribePageUrl": "https://example.com/subscribe",
+  "displayDate": "February 6, 2025",
+  "isoDate": "2025-02-06",
+  "maxRetries": 3,
+  "templateMarkers": {
+    "title": "title",
+    "content": "content"
+  }
+}

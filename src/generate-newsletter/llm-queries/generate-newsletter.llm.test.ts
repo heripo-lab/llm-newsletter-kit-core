@@ -59,8 +59,28 @@ function buildConfig(overrides: Partial<Record<string, any>> = {}) {
   return { ...base, ...overrides } as any;
 }
 
-function mockObjectOnce(obj: any) {
-  vi.mocked(generateText).mockResolvedValueOnce({ output: obj } as any);
+function buildUsage(overrides: Partial<Record<string, any>> = {}) {
+  return {
+    inputTokens: 10,
+    inputTokenDetails: {
+      noCacheTokens: undefined,
+      cacheReadTokens: undefined,
+      cacheWriteTokens: undefined,
+    },
+    outputTokens: 20,
+    outputTokenDetails: { textTokens: undefined, reasoningTokens: undefined },
+    totalTokens: 30,
+    ...overrides,
+  };
+}
+
+const stubUsage = buildUsage();
+
+function mockObjectOnce(obj: any, usage = stubUsage) {
+  vi.mocked(generateText).mockResolvedValueOnce({
+    output: obj,
+    usage,
+  } as any);
 }
 
 describe('GenerateNewsletter.execute', () => {
@@ -125,78 +145,315 @@ describe('GenerateNewsletter.execute', () => {
       }),
     ).not.toThrow();
 
-    // result should only include title and content (picked)
-    expect(result).toEqual({ title: longTitle, content: 'Body markdown' });
-    expect((result as any).extra).toBeUndefined();
+    // result should only include title and content (picked), with usage
+    expect(result.result).toEqual({
+      title: longTitle,
+      content: 'Body markdown',
+    });
+    expect((result.result as any).extra).toBeUndefined();
+    expect(result.usage).toEqual(stubUsage);
   });
 
-  test('retries when isWrittenInOutputLanguage is false on first attempt', async () => {
-    mockObjectOnce({
-      title: longTitle,
-      content: 'Bad language',
-      isWrittenInOutputLanguage: false,
-      copyrightVerified: true,
-      factAccuracy: true,
+  test('retries when isWrittenInOutputLanguage is false and aggregates usage', async () => {
+    const usage1 = buildUsage({
+      inputTokens: 10,
+      outputTokens: 20,
+      totalTokens: 30,
+      inputTokenDetails: {
+        noCacheTokens: 5,
+        cacheReadTokens: undefined,
+        cacheWriteTokens: undefined,
+      },
+      outputTokenDetails: { textTokens: 18, reasoningTokens: undefined },
     });
-    mockObjectOnce({
-      title: longTitle,
-      content: 'Good content',
-      isWrittenInOutputLanguage: true,
-      copyrightVerified: true,
-      factAccuracy: true,
+    const usage2 = buildUsage({
+      inputTokens: 15,
+      outputTokens: 25,
+      totalTokens: 40,
+      inputTokenDetails: {
+        noCacheTokens: undefined,
+        cacheReadTokens: 3,
+        cacheWriteTokens: undefined,
+      },
+      outputTokenDetails: { textTokens: undefined, reasoningTokens: 2 },
     });
+    mockObjectOnce(
+      {
+        title: longTitle,
+        content: 'Bad language',
+        isWrittenInOutputLanguage: false,
+        copyrightVerified: true,
+        factAccuracy: true,
+      },
+      usage1,
+    );
+    mockObjectOnce(
+      {
+        title: longTitle,
+        content: 'Good content',
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: true,
+        factAccuracy: true,
+      },
+      usage2,
+    );
 
     const instance = new (GenerateNewsletter as any)(buildConfig());
     const res = await instance.execute();
 
     expect(generateText).toHaveBeenCalledTimes(2);
-    expect(res).toEqual({ title: longTitle, content: 'Good content' });
+    expect(res.result).toEqual({ title: longTitle, content: 'Good content' });
+    expect(res.usage.inputTokens).toBe(25);
+    expect(res.usage.outputTokens).toBe(45);
+    expect(res.usage.totalTokens).toBe(70);
+    expect(res.usage.inputTokenDetails.noCacheTokens).toBe(5);
+    expect(res.usage.inputTokenDetails.cacheReadTokens).toBe(3);
+    expect(res.usage.inputTokenDetails.cacheWriteTokens).toBeUndefined();
+    expect(res.usage.outputTokenDetails.textTokens).toBe(18);
+    expect(res.usage.outputTokenDetails.reasoningTokens).toBe(2);
   });
 
-  test('retries when copyrightVerified is false on first attempt', async () => {
-    mockObjectOnce({
-      title: longTitle,
-      content: 'Bad copyright',
-      isWrittenInOutputLanguage: true,
-      copyrightVerified: false,
-      factAccuracy: true,
+  test('retries when copyrightVerified is false and aggregates usage', async () => {
+    const usage1 = buildUsage({
+      inputTokens: 5,
+      outputTokens: 10,
+      totalTokens: 15,
     });
-    mockObjectOnce({
-      title: longTitle,
-      content: 'Good content 2',
-      isWrittenInOutputLanguage: true,
-      copyrightVerified: true,
-      factAccuracy: true,
+    const usage2 = buildUsage({
+      inputTokens: 5,
+      outputTokens: 10,
+      totalTokens: 15,
     });
+    mockObjectOnce(
+      {
+        title: longTitle,
+        content: 'Bad copyright',
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: false,
+        factAccuracy: true,
+      },
+      usage1,
+    );
+    mockObjectOnce(
+      {
+        title: longTitle,
+        content: 'Good content 2',
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: true,
+        factAccuracy: true,
+      },
+      usage2,
+    );
 
     const instance = new (GenerateNewsletter as any)(buildConfig());
     const res = await instance.execute();
 
     expect(generateText).toHaveBeenCalledTimes(2);
-    expect(res).toEqual({ title: longTitle, content: 'Good content 2' });
+    expect(res.result).toEqual({ title: longTitle, content: 'Good content 2' });
+    expect(res.usage.inputTokens).toBe(10);
+    expect(res.usage.outputTokens).toBe(20);
+    expect(res.usage.totalTokens).toBe(30);
   });
 
-  test('retries when factAccuracy is false on first attempt', async () => {
-    mockObjectOnce({
-      title: longTitle,
-      content: 'Inaccurate',
-      isWrittenInOutputLanguage: true,
-      copyrightVerified: true,
-      factAccuracy: false,
+  test('retries when factAccuracy is false and aggregates usage', async () => {
+    const usage1 = buildUsage({
+      inputTokens: 8,
+      outputTokens: 12,
+      totalTokens: 20,
     });
-    mockObjectOnce({
-      title: longTitle,
-      content: 'Accurate',
-      isWrittenInOutputLanguage: true,
-      copyrightVerified: true,
-      factAccuracy: true,
+    const usage2 = buildUsage({
+      inputTokens: 8,
+      outputTokens: 12,
+      totalTokens: 20,
     });
+    mockObjectOnce(
+      {
+        title: longTitle,
+        content: 'Inaccurate',
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: true,
+        factAccuracy: false,
+      },
+      usage1,
+    );
+    mockObjectOnce(
+      {
+        title: longTitle,
+        content: 'Accurate',
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: true,
+        factAccuracy: true,
+      },
+      usage2,
+    );
 
     const instance = new (GenerateNewsletter as any)(buildConfig());
     const res = await instance.execute();
 
     expect(generateText).toHaveBeenCalledTimes(2);
-    expect(res).toEqual({ title: longTitle, content: 'Accurate' });
+    expect(res.result).toEqual({ title: longTitle, content: 'Accurate' });
+    expect(res.usage.inputTokens).toBe(16);
+    expect(res.usage.outputTokens).toBe(24);
+    expect(res.usage.totalTokens).toBe(40);
+  });
+
+  test('freeFormIntro=true removes intro from Start, adds Brief Introduction to Briefing, removes heading directive', async () => {
+    mockObjectOnce({
+      title: longTitle,
+      content: 'Free form content',
+      isWrittenInOutputLanguage: true,
+      copyrightVerified: true,
+      factAccuracy: true,
+    });
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({
+        options: {
+          content: {
+            outputLanguage: 'English',
+            expertField: ['AI', 'Robotics'],
+            freeFormIntro: true,
+          },
+          llm: { maxRetries: 3 },
+        },
+      }),
+    );
+
+    await instance.execute();
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+
+    // Start section should skip opening entirely when freeFormIntro=true
+    expect(callArg.system).toContain(
+      'Begin directly with the Overall Briefing section (no separate opening heading or greeting).',
+    );
+    expect(callArg.system).not.toContain('Specify date');
+    expect(callArg.system).not.toContain(
+      'begin with neutral, objective greeting',
+    );
+
+    // Briefing section should use Heading 2 with date + briefing word, no domain
+    expect(callArg.system).toContain('Heading 2 (##)');
+    expect(callArg.system).toContain(
+      'do NOT include domain or field names in the heading',
+    );
+    expect(callArg.system).toContain(
+      'Immediately follow with a brief paragraph introducing key factual information',
+    );
+    expect(callArg.system).toContain(
+      'then include the following bullet points:',
+    );
+    expect(callArg.system).not.toContain('- Brief Introduction:');
+
+    // Category headings should also use Heading 2
+    expect(callArg.system).toContain(
+      'Use Heading 2 (##) for each category heading',
+    );
+
+    // Additional Requirements should NOT contain the fixed heading directive
+    expect(callArg.system).not.toContain(
+      'Declare this part as `Heading 1`(#).',
+    );
+  });
+
+  test('titleContext is included in Title Writing Guidelines when provided', async () => {
+    const titleWithContext =
+      'Weekly AI Research Digest: Latest Trends and Insights';
+    mockObjectOnce({
+      title: titleWithContext,
+      content: 'Title context content',
+      isWrittenInOutputLanguage: true,
+      copyrightVerified: true,
+      factAccuracy: true,
+    });
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({
+        options: {
+          content: {
+            outputLanguage: 'English',
+            expertField: ['AI', 'Robotics'],
+            titleContext: 'Weekly AI Research Digest',
+          },
+          llm: { maxRetries: 3 },
+        },
+      }),
+    );
+
+    const res = await instance.execute();
+
+    expect(generateText).toHaveBeenCalledTimes(1);
+    expect(res.result.title).toBe(titleWithContext);
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+
+    expect(callArg.system).toContain(
+      '**Required title keyword**: "Weekly AI Research Digest"',
+    );
+    expect(callArg.system).toContain('This phrase MUST appear in the title');
+    expect(callArg.system).toContain(
+      "Combine it with key context from today's newsletter content",
+    );
+    // When titleContext is provided, should NOT contain the default title guideline
+    expect(callArg.system).not.toContain(
+      'Title should objectively convey core facts of 1-2 most important news items today',
+    );
+  });
+
+  test('retries when title does not contain titleContext and aggregates usage', async () => {
+    const usage1 = buildUsage({
+      inputTokens: 10,
+      outputTokens: 20,
+      totalTokens: 30,
+    });
+    const usage2 = buildUsage({
+      inputTokens: 12,
+      outputTokens: 22,
+      totalTokens: 34,
+    });
+    mockObjectOnce(
+      {
+        title: 'Unrelated title that is long enough for validation',
+        content: 'Content',
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: true,
+        factAccuracy: true,
+      },
+      usage1,
+    );
+    mockObjectOnce(
+      {
+        title: 'Weekly AI Research Digest: Key Developments',
+        content: 'Content',
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: true,
+        factAccuracy: true,
+      },
+      usage2,
+    );
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({
+        options: {
+          content: {
+            outputLanguage: 'English',
+            expertField: ['AI', 'Robotics'],
+            titleContext: 'Weekly AI Research Digest',
+          },
+          llm: { maxRetries: 3 },
+        },
+      }),
+    );
+
+    const res = await instance.execute();
+
+    expect(generateText).toHaveBeenCalledTimes(2);
+    expect(res.result.title).toBe(
+      'Weekly AI Research Digest: Key Developments',
+    );
+    expect(res.usage.inputTokens).toBe(22);
+    expect(res.usage.outputTokens).toBe(42);
+    expect(res.usage.totalTokens).toBe(64);
   });
 
   test('uses provided sampling/penalty options and omits subscribe link when not given', async () => {

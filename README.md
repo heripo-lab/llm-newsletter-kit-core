@@ -168,6 +168,49 @@ This kit prioritizes flexibility over rigid tooling. Instead of locking you into
 - **Asynchronous Injection:** Parsing logic is injected asynchronously, allowing you to integrate third-party APIs or AI-based parsers effortlessly.
 - **Recommendation:** While the kit supports LLM-based parsing (HTML-to-JSON), we generally recommend **rule-based parsing** (e.g., CSS selectors) for production environments to ensure speed, cost-efficiency, and stability.
 
+## Playground
+
+Playground scripts let you run individual LLM query classes in isolation — no full pipeline needed. Useful for prompt tuning, testing new options, or debugging output quality.
+
+### Setup
+
+1. Install playground dependencies:
+   ```bash
+   npm install -D tsx @ai-sdk/openai
+   ```
+
+2. Copy example data files and customize:
+   ```bash
+   mkdir -p playground/data
+   cp playground/data-examples/config.example.json playground/data/config.json
+   cp playground/data-examples/articles.example.json playground/data/articles.json
+   cp playground/data-examples/template.example.html playground/data/template.html
+   ```
+
+3. Edit `playground/data/config.json` with your OpenAI API key and options.
+4. Edit `playground/data/articles.json` with your target articles.
+5. (Optional) Replace `playground/data/template.html` with your actual email template.
+
+### Run
+
+```bash
+npm run playground:generate-newsletter
+```
+
+### Output
+
+Results are saved to `playground/output/` (git-ignored):
+- `newsletter.md` — Generated markdown with title in frontmatter
+- `newsletter.html` — Rendered HTML with CSS inlined (juice)
+
+### Data Management
+
+| Directory | Git | Purpose |
+|---|---|---|
+| `playground/data-examples/` | Tracked | Format reference files (`.example.*`) |
+| `playground/data/` | Ignored | Your actual config, articles, templates |
+| `playground/output/` | Ignored | Generated results |
+
 ## Development / Build / Test / CI
 
 For the full developer guide (environment, scripts, testing/coverage, and CI), see [CONTRIBUTING.md](./CONTRIBUTING.md).

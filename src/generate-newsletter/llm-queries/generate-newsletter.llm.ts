@@ -1,3 +1,5 @@
+import type { LanguageModelUsage } from 'ai';
+
 import type { ArticleForGenerateContent } from '../models/article';
 
 import { Output, generateText } from 'ai';
@@ -8,7 +10,11 @@ import type { UrlString } from '~/models/common';
 import type { DateService } from '~/models/interfaces';
 import type { Newsletter } from '~/models/newsletter';
 
-import { BaseLLMQuery, type BaseLLMQueryConfig } from './llm-query';
+import {
+  BaseLLMQuery,
+  type BaseLLMQueryConfig,
+  type LLMQueryExecuteResult,
+} from './llm-query';
 
 type Config<TaskId> = BaseLLMQueryConfig<TaskId> & {
   maxOutputTokens?: number;
@@ -80,8 +86,8 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
     this.newsletterBrandName = config.newsletterBrandName;
   }
 
-  public async execute(): Promise<ReturnType> {
-    const { output } = await generateText({
+  public async execute(): Promise<LLMQueryExecuteResult<ReturnType>> {
+    const { output, usage } = await generateText({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
       maxOutputTokens: this.maxOutputTokens,
@@ -97,19 +103,22 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
       prompt: this.userPrompt,
     });
 
-    if (!output.isWrittenInOutputLanguage) {
-      return this.execute();
+    const needsRetry =
+      !output.isWrittenInOutputLanguage ||
+      !output.copyrightVerified ||
+      !output.factAccuracy ||
+      (this.options.content.titleContext &&
+        !output.title.includes(this.options.content.titleContext));
+
+    if (needsRetry) {
+      const retryResult = await this.execute();
+      return {
+        result: retryResult.result,
+        usage: addUsage(usage, retryResult.usage),
+      };
     }
 
-    if (!output.copyrightVerified) {
-      return this.execute();
-    }
-
-    if (!output.factAccuracy) {
-      return this.execute();
-    }
-
-    return pick(output, ['title', 'content']);
+    return { result: pick(output, ['title', 'content']), usage };
   }
 
   private get systemPrompt(): string {
@@ -164,14 +173,14 @@ Copyright Protection & Fact-Checking Principles:
 Output Format & Requirements:
 1. Language: ${this.options.content.outputLanguage}
 
-2. Start: Specify date (${this.dateService.getDisplayDateString()}) and begin with neutral, objective greeting. Briefly introduce key factual information to be covered in today's newsletter.
+2. Start: ${this.options.content.freeFormIntro ? 'Begin directly with the Overall Briefing section (no separate opening heading or greeting).' : `Specify date (${this.dateService.getDisplayDateString()}) and begin with neutral, objective greeting. Briefly introduce key factual information to be covered in today's newsletter.`}
 
-3. Overall Briefing: Before the main listing, create a briefing section conveying objective facts about today's news in these aspects:
+3. Overall Briefing: Before the main listing, create a briefing section conveying objective facts about today's news${this.options.content.freeFormIntro ? `. Structure: Start with a Heading 2 (##) briefing section heading in the format "## 📮 ${this.dateService.getDisplayDateString()} [Briefing/Summary word in output language]" (e.g., "## 📮 2월 6일 브리핑" for Korean, "## 📮 Feb 6 Briefing" for English) — do NOT include domain or field names in the heading. Immediately follow with a brief paragraph introducing key factual information to be covered in today's newsletter, then include the following bullet points:` : ' in these aspects:'}
    - Key Trends: Explain major patterns or trends found in this news based on data. Ex: 'Over 00% of today's news relates to 00'.
    - Immediate Impact: Emphasize most important changes or decisions affecting industry immediately, specifically mentioning which fields will be most impacted.
 
 4. Category Classification & Content Organization:
-   - Group news by logical categories based on related tags and content (e.g., Policy/Regulation, Budget/Support, Research/Development, Products/Services, Operations/Process, Recruitment/Events) rather than just listing by importance.
+   - Group news by logical categories based on related tags and content (e.g., Policy/Regulation, Budget/Support, Research/Development, Products/Services, Operations/Process, Recruitment/Events) rather than just listing by importance.${this.options.content.freeFormIntro ? '\n   - Use Heading 2 (##) for each category heading (same level as the briefing heading). Do NOT use Heading 3 (###) for categories.' : ''}
    - Use appropriate emoticons for each category for visual distinction.
    - Sort by importance within categories, making high-importance items more prominent.
    - Add short paragraph at category start summarizing overall trends or changes in that area, specifying important points and areas to focus on.
@@ -211,18 +220,24 @@ Output Format & Requirements:
    - Do not write preview or anticipatory messages about next newsletter.
    - Do not include contact information for inquiries.
 
-7. Title Writing Guidelines:
+7. Title Writing Guidelines:${
+      this.options.content.titleContext
+        ? `\n   - **Required title keyword**: "${this.options.content.titleContext}". This phrase MUST appear in the title. Combine it with key context from today's newsletter content to form a natural, complete title.
+   - Keep title length 20-100 characters and can include 1-2 relevant emoticons.
+   - Use neutral and objective terms in title (e.g., 'announced', 'implementing', 'deadline approaching').
+   - Write title clearly and factually to maintain professionalism and credibility.`
+        : `
    - Title should objectively convey core facts of 1-2 most important news items today.
    - Write with key facts rather than simple "Newsletter", more effective with specific figures or schedules.
    - Use neutral and objective terms in title (e.g., 'announced', 'implementing', 'deadline approaching').
    - Keep title length 20-50 characters and can include 1-2 relevant emoticons.
    - Place most important key facts at beginning of title.
-   - Write title clearly and factually to maintain professionalism and credibility.
+   - Write title clearly and factually to maintain professionalism and credibility.`
+    }
 
 8. Additional Requirements:
    - Comprehensively analyze posts to create email containing most important information for ${this.expertFields.join(', ')} field experts.
-   - Naturally include date at beginning in the format: "${this.dateService.getDisplayDateString()} ${this.expertFields.join(', ')} [News Term]". Replace [News Term] with the word for "News" appropriate for the output language (e.g., "News" for English, "소식" for Korean). Declare this part as \`Heading 1\`(#).
-   - Write body in markdown format, effectively using headings(#, ##, ###), bold(**), italics(_), bullet points(-, *) etc. to improve readability.
+   ${this.options.content.freeFormIntro ? '' : `- Naturally include date at beginning in the format: "${this.dateService.getDisplayDateString()} ${this.expertFields.join(', ')} [News Term]". Replace [News Term] with the word for "News" appropriate for the output language (e.g., "News" for English, "소식" for Korean). Declare this part as \`Heading 1\`(#).\n   `}- Write body in markdown format, effectively using headings(#, ##, ###), bold(**), italics(_), bullet points(-, *) etc. to improve readability.
    - Group related news to provide broader context, and mention development status if there's continuity with content covered in previous issues.
    - **Source citation is most important for ensuring credibility.** Must provide links in [original title](URL) format using source's title. Do not write as "View", "Article", "[Post3](URL)" format.
    - Specify source whenever article titles or content are quoted in newsletter, ensure all information is provided with links.
@@ -275,4 +290,47 @@ Based on all post information provided above, please generate a ${this.expertFie
 
 Please follow the roles and output format defined in the system prompt (friendly introduction, overall briefing, category classification, in-depth analysis, polite closing, etc.).`;
   }
+}
+
+function addNum(
+  a: number | undefined,
+  b: number | undefined,
+): number | undefined {
+  if (a == null && b == null) return undefined;
+  return (a ?? 0) + (b ?? 0);
+}
+
+function addUsage(
+  a: LanguageModelUsage,
+  b: LanguageModelUsage,
+): LanguageModelUsage {
+  return {
+    inputTokens: addNum(a.inputTokens, b.inputTokens),
+    inputTokenDetails: {
+      noCacheTokens: addNum(
+        a.inputTokenDetails?.noCacheTokens,
+        b.inputTokenDetails?.noCacheTokens,
+      ),
+      cacheReadTokens: addNum(
+        a.inputTokenDetails?.cacheReadTokens,
+        b.inputTokenDetails?.cacheReadTokens,
+      ),
+      cacheWriteTokens: addNum(
+        a.inputTokenDetails?.cacheWriteTokens,
+        b.inputTokenDetails?.cacheWriteTokens,
+      ),
+    },
+    outputTokens: addNum(a.outputTokens, b.outputTokens),
+    outputTokenDetails: {
+      textTokens: addNum(
+        a.outputTokenDetails?.textTokens,
+        b.outputTokenDetails?.textTokens,
+      ),
+      reasoningTokens: addNum(
+        a.outputTokenDetails?.reasoningTokens,
+        b.outputTokenDetails?.reasoningTokens,
+      ),
+    },
+    totalTokens: addNum(a.totalTokens, b.totalTokens),
+  };
 }

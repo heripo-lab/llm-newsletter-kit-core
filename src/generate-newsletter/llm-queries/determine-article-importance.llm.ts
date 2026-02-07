@@ -38,7 +38,7 @@ export default class DetermineArticleImportance<TaskId> extends LLMQuery<
   }
 
   public async execute() {
-    const { output } = await generateText({
+    const { output, usage } = await generateText({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
       output: Output.object({
@@ -48,7 +48,7 @@ export default class DetermineArticleImportance<TaskId> extends LLMQuery<
       prompt: this.userPrompt,
     });
 
-    return output.importanceScore;
+    return { result: output.importanceScore, usage };
   }
 
   private get minPoint() {

@@ -154,7 +154,8 @@ export default class ContentGenerateChain<TaskId> extends Chain<
           dateService: this.dateService,
         });
 
-        return await generateNewsletter.execute();
+        const { result } = await generateNewsletter.execute();
+        return result;
       },
     );
   }

@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "title": "OpenAI releases GPT-5 with enhanced reasoning capabilities",
+    "detailContent": "OpenAI has announced GPT-5, featuring significantly improved reasoning and multi-step problem solving. The model shows 40% improvement on complex reasoning benchmarks compared to GPT-4o. Enterprise API access begins next month with consumer rollout planned for Q2.",
+    "hasAttachedImage": false,
+    "imageContextByLlm": null,
+    "tag1": "AI",
+    "tag2": "LLM",
+    "tag3": "Product Launch",
+    "targetUrl": "https://example.com/board/tech-news",
+    "importanceScore": 9,
+    "contentType": "Tech News",
+    "url": "https://example.com/news/gpt5-release"
+  },
+  {
+    "id": 2,
+    "title": "Google DeepMind publishes new research on AI safety alignment",
+    "detailContent": "Google DeepMind researchers published a paper on constitutional AI alignment methods. The study proposes a novel framework for ensuring AI systems remain aligned with human values during training. Key findings include a 25% reduction in harmful outputs using the new technique.",
+    "hasAttachedImage": true,
+    "imageContextByLlm": "Diagram showing the constitutional AI alignment framework with feedback loops between human evaluators and model training stages.",
+    "tag1": "AI Safety",
+    "tag2": "Research",
+    "tag3": "Google",
+    "targetUrl": "https://example.com/board/research",
+    "importanceScore": 7,
+    "contentType": "Research",
+    "url": "https://example.com/research/deepmind-safety"
+  }
+]
