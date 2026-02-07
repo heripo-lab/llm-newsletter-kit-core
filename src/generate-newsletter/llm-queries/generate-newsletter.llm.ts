@@ -1,3 +1,5 @@
+import type { LanguageModelUsage } from 'ai';
+
 import type { ArticleForGenerateContent } from '../models/article';
 
 import { Output, generateText } from 'ai';
@@ -101,16 +103,19 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
       prompt: this.userPrompt,
     });
 
-    if (!output.isWrittenInOutputLanguage) {
-      return this.execute();
-    }
+    const needsRetry =
+      !output.isWrittenInOutputLanguage ||
+      !output.copyrightVerified ||
+      !output.factAccuracy ||
+      (this.options.content.titleContext &&
+        !output.title.includes(this.options.content.titleContext));
 
-    if (!output.copyrightVerified) {
-      return this.execute();
-    }
-
-    if (!output.factAccuracy) {
-      return this.execute();
+    if (needsRetry) {
+      const retryResult = await this.execute();
+      return {
+        result: retryResult.result,
+        usage: addUsage(usage, retryResult.usage),
+      };
     }
 
     return { result: pick(output, ['title', 'content']), usage };
@@ -285,4 +290,47 @@ Based on all post information provided above, please generate a ${this.expertFie
 
 Please follow the roles and output format defined in the system prompt (friendly introduction, overall briefing, category classification, in-depth analysis, polite closing, etc.).`;
   }
+}
+
+function addNum(
+  a: number | undefined,
+  b: number | undefined,
+): number | undefined {
+  if (a == null && b == null) return undefined;
+  return (a ?? 0) + (b ?? 0);
+}
+
+function addUsage(
+  a: LanguageModelUsage,
+  b: LanguageModelUsage,
+): LanguageModelUsage {
+  return {
+    inputTokens: addNum(a.inputTokens, b.inputTokens),
+    inputTokenDetails: {
+      noCacheTokens: addNum(
+        a.inputTokenDetails?.noCacheTokens,
+        b.inputTokenDetails?.noCacheTokens,
+      ),
+      cacheReadTokens: addNum(
+        a.inputTokenDetails?.cacheReadTokens,
+        b.inputTokenDetails?.cacheReadTokens,
+      ),
+      cacheWriteTokens: addNum(
+        a.inputTokenDetails?.cacheWriteTokens,
+        b.inputTokenDetails?.cacheWriteTokens,
+      ),
+    },
+    outputTokens: addNum(a.outputTokens, b.outputTokens),
+    outputTokenDetails: {
+      textTokens: addNum(
+        a.outputTokenDetails?.textTokens,
+        b.outputTokenDetails?.textTokens,
+      ),
+      reasoningTokens: addNum(
+        a.outputTokenDetails?.reasoningTokens,
+        b.outputTokenDetails?.reasoningTokens,
+      ),
+    },
+    totalTokens: addNum(a.totalTokens, b.totalTokens),
+  };
 }
