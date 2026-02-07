@@ -3,6 +3,10 @@ import { LoggingExecutor } from '~/logging/logging-executor';
 import GenerateNewsletter from '../llm-queries/generate-newsletter.llm';
 import ContentGenerateChain from './content-generate.chain';
 
+vi.mock('safe-markdown2html', () => ({
+  default: vi.fn((s: string) => s),
+}));
+
 vi.mock('../llm-queries/generate-newsletter.llm', () => {
   let nextResult: any = null;
   const calls: any[] = [];
