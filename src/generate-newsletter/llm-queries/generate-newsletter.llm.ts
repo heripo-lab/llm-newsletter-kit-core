@@ -175,12 +175,12 @@ Output Format & Requirements:
 
 2. Start: ${this.options.content.freeFormIntro ? 'Begin directly with the Overall Briefing section (no separate opening heading or greeting).' : `Specify date (${this.dateService.getDisplayDateString()}) and begin with neutral, objective greeting. Briefly introduce key factual information to be covered in today's newsletter.`}
 
-3. Overall Briefing: Before the main listing, create a briefing section conveying objective facts about today's news${this.options.content.freeFormIntro ? `. Structure: Start with a briefing section heading that includes the date only (e.g., "### 📮 ${this.dateService.getDisplayDateString()} briefing-equivalent-in-output-language") — do NOT include domain or field names in the heading. Immediately follow with a brief paragraph introducing key factual information to be covered in today's newsletter, then include the following bullet points:` : ' in these aspects:'}
+3. Overall Briefing: Before the main listing, create a briefing section conveying objective facts about today's news${this.options.content.freeFormIntro ? `. Structure: Start with a Heading 2 (##) briefing section heading in the format "## 📮 ${this.dateService.getDisplayDateString()} [Briefing/Summary word in output language]" (e.g., "## 📮 2월 6일 브리핑" for Korean, "## 📮 Feb 6 Briefing" for English) — do NOT include domain or field names in the heading. Immediately follow with a brief paragraph introducing key factual information to be covered in today's newsletter, then include the following bullet points:` : ' in these aspects:'}
    - Key Trends: Explain major patterns or trends found in this news based on data. Ex: 'Over 00% of today's news relates to 00'.
    - Immediate Impact: Emphasize most important changes or decisions affecting industry immediately, specifically mentioning which fields will be most impacted.
 
 4. Category Classification & Content Organization:
-   - Group news by logical categories based on related tags and content (e.g., Policy/Regulation, Budget/Support, Research/Development, Products/Services, Operations/Process, Recruitment/Events) rather than just listing by importance.
+   - Group news by logical categories based on related tags and content (e.g., Policy/Regulation, Budget/Support, Research/Development, Products/Services, Operations/Process, Recruitment/Events) rather than just listing by importance.${this.options.content.freeFormIntro ? '\n   - Use Heading 2 (##) for each category heading (same level as the briefing heading). Do NOT use Heading 3 (###) for categories.' : ''}
    - Use appropriate emoticons for each category for visual distinction.
    - Sort by importance within categories, making high-importance items more prominent.
    - Add short paragraph at category start summarizing overall trends or changes in that area, specifying important points and areas to focus on.

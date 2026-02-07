@@ -332,7 +332,8 @@ describe('GenerateNewsletter.execute', () => {
       'begin with neutral, objective greeting',
     );
 
-    // Briefing section should specify paragraph structure before bullet points
+    // Briefing section should use Heading 2 with date + briefing word, no domain
+    expect(callArg.system).toContain('Heading 2 (##)');
     expect(callArg.system).toContain(
       'do NOT include domain or field names in the heading',
     );
@@ -343,6 +344,11 @@ describe('GenerateNewsletter.execute', () => {
       'then include the following bullet points:',
     );
     expect(callArg.system).not.toContain('- Brief Introduction:');
+
+    // Category headings should also use Heading 2
+    expect(callArg.system).toContain(
+      'Use Heading 2 (##) for each category heading',
+    );
 
     // Additional Requirements should NOT contain the fixed heading directive
     expect(callArg.system).not.toContain(
