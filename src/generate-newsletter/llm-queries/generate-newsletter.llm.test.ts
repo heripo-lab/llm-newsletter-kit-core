@@ -244,16 +244,26 @@ describe('GenerateNewsletter.execute', () => {
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
 
-    // Start section should NOT contain the brief intro text
-    expect(callArg.system).toContain('begin with neutral, objective greeting.');
+    // Start section should skip opening entirely when freeFormIntro=true
+    expect(callArg.system).toContain(
+      'Begin directly with the Overall Briefing section (no separate opening heading or greeting).',
+    );
+    expect(callArg.system).not.toContain('Specify date');
     expect(callArg.system).not.toContain(
-      "begin with neutral, objective greeting. Briefly introduce key factual information to be covered in today's newsletter.",
+      'begin with neutral, objective greeting',
     );
 
-    // Briefing section should contain Brief Introduction sub-bullet
+    // Briefing section should specify paragraph structure before bullet points
     expect(callArg.system).toContain(
-      "- Brief Introduction: Briefly introduce key factual information to be covered in today's newsletter.",
+      'do NOT include domain or field names in the heading',
     );
+    expect(callArg.system).toContain(
+      'Immediately follow with a brief paragraph introducing key factual information',
+    );
+    expect(callArg.system).toContain(
+      'then include the following bullet points:',
+    );
+    expect(callArg.system).not.toContain('- Brief Introduction:');
 
     // Additional Requirements should NOT contain the fixed heading directive
     expect(callArg.system).not.toContain(
@@ -288,10 +298,15 @@ describe('GenerateNewsletter.execute', () => {
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
 
     expect(callArg.system).toContain(
-      '**Top priority context for title**: "Weekly AI Research Digest"',
+      '**Required title keyword**: "Weekly AI Research Digest"',
     );
+    expect(callArg.system).toContain('This phrase MUST appear in the title');
     expect(callArg.system).toContain(
-      'Use this as the primary reference when crafting the title',
+      "Combine it with key context from today's newsletter content",
+    );
+    // When titleContext is provided, should NOT contain the default title guideline
+    expect(callArg.system).not.toContain(
+      'Title should objectively convey core facts of 1-2 most important news items today',
     );
   });
 

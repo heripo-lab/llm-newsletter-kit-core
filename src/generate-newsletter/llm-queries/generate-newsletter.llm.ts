@@ -168,11 +168,11 @@ Copyright Protection & Fact-Checking Principles:
 Output Format & Requirements:
 1. Language: ${this.options.content.outputLanguage}
 
-2. Start: Specify date (${this.dateService.getDisplayDateString()}) and begin with neutral, objective greeting.${this.options.content.freeFormIntro ? '' : " Briefly introduce key factual information to be covered in today's newsletter."}
+2. Start: ${this.options.content.freeFormIntro ? 'Begin directly with the Overall Briefing section (no separate opening heading or greeting).' : `Specify date (${this.dateService.getDisplayDateString()}) and begin with neutral, objective greeting. Briefly introduce key factual information to be covered in today's newsletter.`}
 
-3. Overall Briefing: Before the main listing, create a briefing section conveying objective facts about today's news in these aspects:
+3. Overall Briefing: Before the main listing, create a briefing section conveying objective facts about today's news.${this.options.content.freeFormIntro ? ` Structure: Start with a briefing section heading that includes the date only (e.g., "### 📮 ${this.dateService.getDisplayDateString()} briefing-equivalent-in-output-language") — do NOT include domain or field names in the heading. Immediately follow with a brief paragraph introducing key factual information to be covered in today's newsletter, then include the following bullet points:` : ' Include these aspects:'}
    - Key Trends: Explain major patterns or trends found in this news based on data. Ex: 'Over 00% of today's news relates to 00'.
-   - Immediate Impact: Emphasize most important changes or decisions affecting industry immediately, specifically mentioning which fields will be most impacted.${this.options.content.freeFormIntro ? "\n   - Brief Introduction: Briefly introduce key factual information to be covered in today's newsletter." : ''}
+   - Immediate Impact: Emphasize most important changes or decisions affecting industry immediately, specifically mentioning which fields will be most impacted.
 
 4. Category Classification & Content Organization:
    - Group news by logical categories based on related tags and content (e.g., Policy/Regulation, Budget/Support, Research/Development, Products/Services, Operations/Process, Recruitment/Events) rather than just listing by importance.
@@ -215,13 +215,20 @@ Output Format & Requirements:
    - Do not write preview or anticipatory messages about next newsletter.
    - Do not include contact information for inquiries.
 
-7. Title Writing Guidelines:${this.options.content.titleContext ? `\n   - **Top priority context for title**: "${this.options.content.titleContext}". Use this as the primary reference when crafting the title, while also reflecting the generated newsletter content.` : ''}
+7. Title Writing Guidelines:${
+      this.options.content.titleContext
+        ? `\n   - **Required title keyword**: "${this.options.content.titleContext}". This phrase MUST appear in the title. Combine it with key context from today's newsletter content to form a natural, complete title.
+   - Keep title length 20-100 characters and can include 1-2 relevant emoticons.
+   - Use neutral and objective terms in title (e.g., 'announced', 'implementing', 'deadline approaching').
+   - Write title clearly and factually to maintain professionalism and credibility.`
+        : `
    - Title should objectively convey core facts of 1-2 most important news items today.
    - Write with key facts rather than simple "Newsletter", more effective with specific figures or schedules.
    - Use neutral and objective terms in title (e.g., 'announced', 'implementing', 'deadline approaching').
    - Keep title length 20-50 characters and can include 1-2 relevant emoticons.
    - Place most important key facts at beginning of title.
-   - Write title clearly and factually to maintain professionalism and credibility.
+   - Write title clearly and factually to maintain professionalism and credibility.`
+    }
 
 8. Additional Requirements:
    - Comprehensively analyze posts to create email containing most important information for ${this.expertFields.join(', ')} field experts.
