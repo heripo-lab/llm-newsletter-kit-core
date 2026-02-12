@@ -48,6 +48,12 @@ export interface CrawlingProvider {
   maxConcurrency?: number;
 
   /**
+   * Optional custom fetch function (e.g., proxy-based fetch).
+   * When provided, this function is used instead of the global `fetch` for HTTP requests.
+   */
+  customFetch?: typeof fetch;
+
+  /**
    * Crawling target groups.
    */
   crawlingTargetGroups: CrawlingTargetGroup[];
