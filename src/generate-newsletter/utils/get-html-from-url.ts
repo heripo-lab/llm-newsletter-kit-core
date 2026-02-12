@@ -65,6 +65,7 @@ export async function getHtmlFromUrl(
   logger: AppLogger,
   url: string,
   referer: string = 'https://www.google.com/',
+  customFetch?: typeof fetch,
 ): Promise<string> {
   const maxRetries = 5;
   const baseTimeoutMs = 10_000; // Base 10s, increases per attempt
@@ -84,7 +85,7 @@ export async function getHtmlFromUrl(
 
     try {
       const startedAt = Date.now();
-      const response = await fetch(url, {
+      const response = await (customFetch ?? fetch)(url, {
         // mode: 'cors' // Not applicable in Node, left here for behavioral parity with browsers
         redirect: 'follow',
         // @ts-expect-error Undici/Fetch in Node may allow duplex; safe to ignore

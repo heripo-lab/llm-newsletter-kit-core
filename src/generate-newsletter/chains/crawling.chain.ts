@@ -144,7 +144,12 @@ export default class CrawlingChain<TaskId> extends Chain<
       },
       async () => {
         try {
-          return await getHtmlFromUrl(this.logger, target.url);
+          return await getHtmlFromUrl(
+            this.logger,
+            target.url,
+            undefined,
+            this.provider.customFetch,
+          );
         } catch (error) {
           this.logger.error({
             event: 'crawl.list.fetch.failed',
@@ -251,7 +256,14 @@ export default class CrawlingChain<TaskId> extends Chain<
       },
       async () => {
         const settled = await Promise.allSettled(
-          list.map((data) => getHtmlFromUrl(this.logger, data.detailUrl)),
+          list.map((data) =>
+            getHtmlFromUrl(
+              this.logger,
+              data.detailUrl,
+              undefined,
+              this.provider.customFetch,
+            ),
+          ),
         );
 
         const detailPagesHtmlWithPipelineId: HtmlWithPipelineId[] = [];
