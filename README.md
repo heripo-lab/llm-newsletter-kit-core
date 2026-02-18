@@ -83,6 +83,8 @@ const config: GenerateNewsletterConfig<string> = {
   contentOptions: {
     outputLanguage: 'English',
     expertField: ['Technology', 'AI'],
+    // freeFormIntro: true,       // Optional: free-form briefing intro
+    // titleContext: 'AI Weekly',  // Optional: keyword to include in title
   },
   dateService: {
     getCurrentISODateString: () => new Date().toISOString().split('T')[0],
@@ -93,7 +95,7 @@ const config: GenerateNewsletterConfig<string> = {
     end: async () => {},
   },
   crawlingProvider: {
-    // Define crawling targets and parsing logic
+    // customFetch: myProxyFetch,  // Optional: custom fetch for proxy support
     crawlingTargetGroups: [/* ... */],
     fetchExistingArticlesByUrls: async (urls) => [/* ... */],
     saveCrawledArticles: async (articles, context) => articles.length,
@@ -141,7 +143,7 @@ Entry point: `src/index.ts`
     - generate(): Promise<string | number | null>
 - Main Types
   - TaskService<TaskId> { start(): Promise<TaskId>; end(): Promise<void> }
-  - CrawlingProvider { crawlingTargetGroups, fetchExistingArticlesByUrls, saveCrawledArticles, ... }
+  - CrawlingProvider { crawlingTargetGroups, customFetch?, fetchExistingArticlesByUrls, saveCrawledArticles, ... }
   - AnalysisProvider { classifyTagOptions.model, analyzeImagesOptions.model, determineScoreOptions(model, minimumImportanceScoreRules), fetchUnscoredArticles, fetchTags, update }
   - ContentGenerateProvider { model and generation options, issueOrder, publicationCriteria, subscribePageUrl, newsletterBrandName, fetchArticleCandidates, htmlTemplate, saveNewsletter }
   - GenerateNewsletterOptions { logger, llm, chain, previewNewsletter(emailService/emailMessage/fetchNewsletterForPreview) }
