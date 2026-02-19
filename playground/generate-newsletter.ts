@@ -11,6 +11,7 @@ import safeMarkdown2Html from 'safe-markdown2html';
 import GenerateNewsletter from '~/generate-newsletter/llm-queries/generate-newsletter.llm';
 import type { ArticleForGenerateContent } from '~/generate-newsletter/models/article';
 import { LoggingExecutor } from '~/logging/logging-executor';
+import { ensureHrBeforeH2 } from '~/utils/string';
 
 import {
   DATA_DIR,
@@ -127,7 +128,7 @@ async function main() {
   );
 
   // 6. Convert markdown to HTML
-  const contentHtml = safeMarkdown2Html(result.content, {
+  const contentHtml = safeMarkdown2Html(ensureHrBeforeH2(result.content), {
     window: new JSDOM('').window,
     linkTargetBlank: true,
     fixMalformedUrls: true,
