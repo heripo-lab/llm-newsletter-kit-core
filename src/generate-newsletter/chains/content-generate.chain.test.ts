@@ -224,4 +224,31 @@ describe('ContentGenerateChain', () => {
     expect(result.html).toBe('<h1>T</h1><section>C</section>');
     expect(result.newsletterId).not.toBeNull();
   });
+
+  test('applies ensureHrBeforeH2 preprocessing to content before HTML conversion', async () => {
+    const candidates = Array.from({ length: 6 }).map((_, i) => ({
+      url: `u${i}`,
+      title: `t${i}`,
+      summary: `s${i}`,
+      importanceScore: 2,
+    }));
+
+    const markdownContent = 'Intro\n## Section A\nBody A\n## Section B';
+
+    const { chain } = createChain({
+      fetchArticleCandidates: vi.fn().mockResolvedValue(candidates),
+      htmlTemplate: { html: '<div>{{content}}</div>' },
+    });
+
+    (GenerateNewsletter as any).__setExecuteResult?.({
+      title: 'T',
+      content: markdownContent,
+    });
+
+    const result = await (chain.chain as any).invoke({});
+
+    expect(result.html).toBe(
+      '<div>Intro\n---\n## Section A\nBody A\n---\n## Section B</div>',
+    );
+  });
 });
