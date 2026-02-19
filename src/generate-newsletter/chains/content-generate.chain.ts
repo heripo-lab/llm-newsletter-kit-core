@@ -11,6 +11,7 @@ import safeMarkdown2Html from 'safe-markdown2html';
 import { LoggingExecutor } from '~/logging/logging-executor';
 import type { DateService } from '~/models/interfaces';
 import type { Newsletter } from '~/models/newsletter';
+import { ensureHrBeforeH2 } from '~/utils/string';
 
 import GenerateNewsletter from '../llm-queries/generate-newsletter.llm';
 import { Chain, type ChainConfig } from './chain';
@@ -183,7 +184,7 @@ export default class ContentGenerateChain<TaskId> extends Chain<
           )
           .replaceAll(
             `{{${this.htmlTemplate.markers.content}}}`,
-            safeMarkdown2Html(coreContent.content, {
+            safeMarkdown2Html(ensureHrBeforeH2(coreContent.content), {
               window: new JSDOM('').window,
               linkTargetBlank: true,
               fixMalformedUrls: true,
