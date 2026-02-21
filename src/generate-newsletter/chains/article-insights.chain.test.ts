@@ -78,7 +78,9 @@ vi.mock('../llm-queries/classify-tags.llm', () => {
     }
     return { result: undefined, usage: {} } as any;
   });
-  const Ctor = vi.fn().mockImplementation(() => ({ execute: executeFn }));
+  const Ctor = vi.fn().mockImplementation(function () {
+    return { execute: executeFn };
+  });
   (Ctor as any).__setQueue = (q: Array<() => Promise<any>>) => {
     queue.length = 0;
     queue.push(...q);
@@ -96,7 +98,9 @@ vi.mock('../llm-queries/analyze-images.llm', () => {
     }
     return { result: undefined, usage: {} } as any;
   });
-  const Ctor = vi.fn().mockImplementation(() => ({ execute: executeFn }));
+  const Ctor = vi.fn().mockImplementation(function () {
+    return { execute: executeFn };
+  });
   (Ctor as any).__setQueue = (q: Array<() => Promise<any>>) => {
     queue.length = 0;
     queue.push(...q);
@@ -114,7 +118,9 @@ vi.mock('../llm-queries/determine-article-importance.llm', () => {
     }
     return { result: undefined, usage: {} } as any;
   });
-  const Ctor = vi.fn().mockImplementation(() => ({ execute: executeFn }));
+  const Ctor = vi.fn().mockImplementation(function () {
+    return { execute: executeFn };
+  });
   (Ctor as any).__setQueue = (q: Array<() => Promise<any>>) => {
     queue.length = 0;
     queue.push(...q);
@@ -522,16 +528,22 @@ describe('ArticleInsightsChain', () => {
   });
 
   test('classifyArticles: covers skip, success, and error paths', async () => {
-    // For first article: success
-    (ClassifyTags as any).mockImplementationOnce(() => ({
-      execute: vi
-        .fn()
-        .mockResolvedValue(wrapResult({ tag1: 'n1', tag2: 'n2', tag3: 'n3' })),
-    }));
+    // For first article: success (tag2 is null to cover pushTag null branch)
+    (ClassifyTags as any).mockImplementationOnce(function () {
+      return {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            wrapResult({ tag1: 'n1', tag2: null, tag3: 'n3' }),
+          ),
+      };
+    });
     // For third article: throw
-    (ClassifyTags as any).mockImplementationOnce(() => ({
-      execute: vi.fn().mockRejectedValue(new Error('cls-fail')),
-    }));
+    (ClassifyTags as any).mockImplementationOnce(function () {
+      return {
+        execute: vi.fn().mockRejectedValue(new Error('cls-fail')),
+      };
+    });
 
     const chain: any = buildChain();
 
@@ -572,22 +584,28 @@ describe('ArticleInsightsChain', () => {
 
     const out = await (chain as any).classifyArticles();
 
-    expect(out).toEqual([{ id: 'b1', tag1: 'n1', tag2: 'n2', tag3: 'n3' }]);
-    // tags should be enriched without duplicates
-    expect(tags).toEqual(['e1', 'n1', 'n2', 'n3']);
+    expect(out).toEqual([{ id: 'b1', tag1: 'n1', tag2: null, tag3: 'n3' }]);
+    // tags should be enriched without duplicates (tag2 is null so not added)
+    expect(tags).toEqual(['e1', 'n1', 'n3']);
   });
 
   test('extractImageContext: covers success, noimage, exist, and error branches', async () => {
     // Each AnalyzeImages instance should have custom execute behavior
-    (AnalyzeImages as any).mockImplementationOnce(() => ({
-      execute: vi.fn().mockResolvedValue(wrapResult('ctx1')),
-    })); // a1
-    (AnalyzeImages as any).mockImplementationOnce(() => ({
-      execute: vi.fn().mockResolvedValue(wrapResult(null)),
-    })); // a2 -> end.noimage
-    (AnalyzeImages as any).mockImplementationOnce(() => ({
-      execute: vi.fn().mockRejectedValue(new Error('boom')),
-    })); // a5 -> error
+    (AnalyzeImages as any).mockImplementationOnce(function () {
+      return {
+        execute: vi.fn().mockResolvedValue(wrapResult('ctx1')),
+      };
+    }); // a1
+    (AnalyzeImages as any).mockImplementationOnce(function () {
+      return {
+        execute: vi.fn().mockResolvedValue(wrapResult(null)),
+      };
+    }); // a2 -> end.noimage
+    (AnalyzeImages as any).mockImplementationOnce(function () {
+      return {
+        execute: vi.fn().mockRejectedValue(new Error('boom')),
+      };
+    }); // a5 -> error
 
     const chain: any = buildChain();
 
@@ -650,9 +668,11 @@ describe('ArticleInsightsChain', () => {
 
 test('classifyArticles handles non-Error rejection and logs stringified error', async () => {
   // LLM returns a rejected non-Error (string)
-  (ClassifyTags as any).mockImplementationOnce(() => ({
-    execute: vi.fn().mockRejectedValue('cls-nonerror'),
-  }));
+  (ClassifyTags as any).mockImplementationOnce(function () {
+    return {
+      execute: vi.fn().mockRejectedValue('cls-nonerror'),
+    };
+  });
 
   const instance: any = (function build() {
     const provider = {
@@ -689,9 +709,11 @@ test('classifyArticles handles non-Error rejection and logs stringified error', 
 });
 
 test('extractImageContext handles non-Error rejection without crashing', async () => {
-  (AnalyzeImages as any).mockImplementationOnce(() => ({
-    execute: vi.fn().mockRejectedValue('img-nonerror'),
-  }));
+  (AnalyzeImages as any).mockImplementationOnce(function () {
+    return {
+      execute: vi.fn().mockRejectedValue('img-nonerror'),
+    };
+  });
 
   const chain: any = (function build() {
     const provider = {
@@ -723,9 +745,11 @@ test('extractImageContext handles non-Error rejection without crashing', async (
 });
 
 test('determineImportance non-Error rejection defaults importanceScore to 1', async () => {
-  (DetermineArticleImportance as any).mockImplementationOnce(() => ({
-    execute: vi.fn().mockRejectedValue('imp-nonerror'),
-  }));
+  (DetermineArticleImportance as any).mockImplementationOnce(function () {
+    return {
+      execute: vi.fn().mockRejectedValue('imp-nonerror'),
+    };
+  });
 
   const chain: any = (function build() {
     const provider = {
@@ -828,9 +852,11 @@ test('generateInsights keeps original article when reprocess returns no matching
 
 test('determineImportance success path: end logging errors are swallowed and result is preserved', async () => {
   // Make DetermineArticleImportance.resolve successfully
-  (DetermineArticleImportance as any).mockImplementationOnce(() => ({
-    execute: vi.fn().mockResolvedValue(wrapResult(9)),
-  }));
+  (DetermineArticleImportance as any).mockImplementationOnce(function () {
+    return {
+      execute: vi.fn().mockResolvedValue(wrapResult(9)),
+    };
+  });
 
   // Logger throws only on the success end event to hit inner try/catch
   const logger = {
@@ -876,9 +902,11 @@ test('determineImportance success path: end logging errors are swallowed and res
 
 test('determineImportance error path: error logging errors are swallowed and fallback score returned', async () => {
   // Force the LLM to reject to hit the error branch
-  (DetermineArticleImportance as any).mockImplementationOnce(() => ({
-    execute: vi.fn().mockRejectedValue(new Error('imp-fail')),
-  }));
+  (DetermineArticleImportance as any).mockImplementationOnce(function () {
+    return {
+      execute: vi.fn().mockRejectedValue(new Error('imp-fail')),
+    };
+  });
 
   // Logger throws only on the error end event to hit inner catch
   const logger = {
@@ -926,9 +954,11 @@ test('determineImportance error path: error logging errors are swallowed and fal
 
 test('determineImportance error path logs payload and returns fallback when logger does not throw', async () => {
   // LLM rejects with an Error to take the Error branch
-  (DetermineArticleImportance as any).mockImplementationOnce(() => ({
-    execute: vi.fn().mockRejectedValue(new Error('boom-imp')),
-  }));
+  (DetermineArticleImportance as any).mockImplementationOnce(function () {
+    return {
+      execute: vi.fn().mockRejectedValue(new Error('boom-imp')),
+    };
+  });
 
   const logger = { debug: vi.fn(), info: vi.fn(), error: vi.fn() };
 
@@ -976,9 +1006,11 @@ test('determineImportance error path logs payload and returns fallback when logg
 // Additional branch coverage for error payload String(error) object case
 
 test('determineImportance error path stringifies non-Error object payload', async () => {
-  (DetermineArticleImportance as any).mockImplementationOnce(() => ({
-    execute: vi.fn().mockRejectedValue({ code: 123 }),
-  }));
+  (DetermineArticleImportance as any).mockImplementationOnce(function () {
+    return {
+      execute: vi.fn().mockRejectedValue({ code: 123 }),
+    };
+  });
 
   const logger = { debug: vi.fn(), info: vi.fn(), error: vi.fn() };
 

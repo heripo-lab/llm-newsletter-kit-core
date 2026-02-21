@@ -2,6 +2,8 @@ import { makeLoggingExecutor } from 'test/test-utils';
 
 import CrawlingChain from './crawling.chain';
 
+vi.unmock('~/generate-newsletter/chains/crawling.chain');
+
 vi.mock('../utils/get-html-from-url', () => ({
   getHtmlFromUrl: vi.fn(async (_logger: any, url: string) => `HTML:${url}`),
 }));
