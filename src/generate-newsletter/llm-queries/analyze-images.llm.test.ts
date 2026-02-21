@@ -155,4 +155,37 @@ describe('AnalyzeImages', () => {
       './rel/e.jpg',
     ]);
   });
+
+  test('filters out invalid URLs and empty URLs from image extraction', async () => {
+    const detailContent = [
+      '![valid](https://ok.com/img.png)',
+      '![invalid](ftp://bad.com/img.png)',
+      '![empty](   )',
+      '![mailto](mailto:x@y.com)',
+    ].join('\n');
+
+    const query = buildQuery({
+      targetArticle: {
+        title: 'Filter test',
+        detailContent,
+        hasAttachedImage: true,
+      },
+    });
+
+    const stubUsage = { inputTokens: 10, outputTokens: 5, totalTokens: 15 };
+    vi.mocked(generateText).mockResolvedValue({
+      output: { imageContext: 'filtered' },
+      usage: stubUsage,
+    } as any);
+
+    const result = await query.execute();
+
+    expect(result.result).toBe('filtered');
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+    const imageParts = callArg.messages[0].content.filter(
+      (p: any) => p.type === 'image',
+    );
+    expect(imageParts).toHaveLength(1);
+    expect(imageParts[0].image).toBe('https://ok.com/img.png');
+  });
 });

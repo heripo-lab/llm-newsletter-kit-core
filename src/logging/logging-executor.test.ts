@@ -1,5 +1,7 @@
 import { LoggingExecutor } from './logging-executor';
 
+vi.unmock('~/logging/logging-executor');
+
 afterEach(() => {
   vi.restoreAllMocks();
 });

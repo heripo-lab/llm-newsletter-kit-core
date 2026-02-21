@@ -3,6 +3,8 @@ import * as Runnables from '@langchain/core/runnables';
 
 import AnalysisChain from './analysis.chain';
 
+vi.unmock('~/generate-newsletter/chains/analysis.chain');
+
 vi.mock('./article-insights.chain', () => {
   const localGenerate = vi.fn();
   const Ctor: any = vi.fn().mockImplementation(function (
