@@ -1,3 +1,16 @@
+/**
+ * Replaces ASCII double quotes with Unicode smart quotes (U+201C, U+201D).
+ * Prevents JSON structured output corruption when LLM reproduces quoted titles.
+ */
+export const replaceAsciiQuotes = (str: string): string => {
+  let isOpen = true;
+  return str.replace(/"/g, () => {
+    const q = isOpen ? '\u201c' : '\u201d';
+    isOpen = !isOpen;
+    return q;
+  });
+};
+
 export const ensureStringArray = (value: string | string[]): string[] => {
   return typeof value === 'string' ? [value] : value;
 };

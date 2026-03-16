@@ -1,4 +1,8 @@
-import { ensureHrBeforeH2, ensureStringArray } from './string';
+import {
+  ensureHrBeforeH2,
+  ensureStringArray,
+  replaceAsciiQuotes,
+} from './string';
 
 describe('ensureStringArray', () => {
   test('wraps a non-empty string into an array with that string', () => {
@@ -26,6 +30,29 @@ describe('ensureStringArray', () => {
     const result = ensureStringArray(arr);
     expect(result).toBe(arr);
     expect(result.length).toBe(0);
+  });
+});
+
+describe('replaceAsciiQuotes', () => {
+  test('replaces paired ASCII double quotes with smart quotes', () => {
+    const input =
+      '국가유산청, 서울시에 "세운4구역 내 불법행위 및 사업시행 인가 중단" 촉구';
+    const result = replaceAsciiQuotes(input);
+    expect(result).toBe(
+      '국가유산청, 서울시에 \u201c세운4구역 내 불법행위 및 사업시행 인가 중단\u201d 촉구',
+    );
+    expect(result).not.toContain('"');
+  });
+
+  test('handles odd number of quotes (last one is opening)', () => {
+    const input = 'say "hello" and "bye';
+    const result = replaceAsciiQuotes(input);
+    expect(result).toBe('say \u201chello\u201d and \u201cbye');
+  });
+
+  test('returns string unchanged when no quotes present', () => {
+    const input = 'no quotes here';
+    expect(replaceAsciiQuotes(input)).toBe(input);
   });
 });
 
