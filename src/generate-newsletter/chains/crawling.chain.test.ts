@@ -434,6 +434,43 @@ describe('CrawlingChain', () => {
     );
   });
 
+  test('mergeParsedArticles replaces ASCII double quotes in title and detailContent with smart quotes', async () => {
+    const loggingExecutor = makeLoggingExecutor();
+    const provider = { maxConcurrency: 1, crawlingTargetGroups: [] } as any;
+    const chain = new CrawlingChain({
+      logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn() } as any,
+      taskId: 'task-ascii-quotes',
+      provider,
+      options: { chain: { stopAfterAttempt: 1 } } as any,
+      loggingExecutor: loggingExecutor as any,
+    });
+
+    const target = { url: 'https://x', name: 'T1' } as any;
+    const list = [
+      {
+        pipelineId: 'p1',
+        detailUrl: 'https://x/1',
+        title: '서울시에 "세운4구역" 촉구',
+      },
+    ];
+    const details = [
+      {
+        pipelineId: 'p1',
+        detailContent: '"불법행위" 관련 내용',
+      },
+    ];
+
+    const result = await (chain as any).mergeParsedArticles(
+      target,
+      list,
+      details,
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0].title).toBe('서울시에 \u201c세운4구역\u201d 촉구');
+    expect(result[0].detailContent).toBe('\u201c불법행위\u201d 관련 내용');
+  });
+
   test('mergeParsedArticles throws when no matching list item (pipelineId mismatch)', async () => {
     const loggingExecutor = makeLoggingExecutor();
     const provider = { maxConcurrency: 1, crawlingTargetGroups: [] } as any;

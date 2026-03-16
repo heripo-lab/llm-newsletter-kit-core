@@ -87,7 +87,7 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
   }
 
   public async execute(): Promise<LLMQueryExecuteResult<ReturnType>> {
-    const { output, usage } = await generateText({
+    const { output, usage, finishReason } = await generateText({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
       maxOutputTokens: this.maxOutputTokens,
@@ -102,6 +102,14 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
       system: this.systemPrompt,
       prompt: this.userPrompt,
     });
+
+    if (finishReason === 'length') {
+      throw new Error(
+        `[GenerateNewsletter] Output truncated: LLM reached the token limit (finishReason: "length"). ` +
+          `Increase "maxOutputTokens" in ContentGenerateProvider or reduce the number of input articles. ` +
+          `Current maxOutputTokens: ${this.maxOutputTokens ?? 'not set (model default)'}`,
+      );
+    }
 
     const needsRetry =
       !output.isWrittenInOutputLanguage ||

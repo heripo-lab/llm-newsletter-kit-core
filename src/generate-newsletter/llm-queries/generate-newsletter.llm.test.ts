@@ -76,10 +76,11 @@ function buildUsage(overrides: Partial<Record<string, any>> = {}) {
 
 const stubUsage = buildUsage();
 
-function mockObjectOnce(obj: any, usage = stubUsage) {
+function mockObjectOnce(obj: any, usage = stubUsage, finishReason = 'stop') {
   vi.mocked(generateText).mockResolvedValueOnce({
     output: obj,
     usage,
+    finishReason,
   } as any);
 }
 
@@ -454,6 +455,48 @@ describe('GenerateNewsletter.execute', () => {
     expect(res.usage.inputTokens).toBe(22);
     expect(res.usage.outputTokens).toBe(42);
     expect(res.usage.totalTokens).toBe(64);
+  });
+
+  test('throws error when finishReason is "length"', async () => {
+    mockObjectOnce(
+      {
+        title: longTitle,
+        content: 'Truncated',
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: true,
+        factAccuracy: true,
+      },
+      stubUsage,
+      'length',
+    );
+
+    const instance = new (GenerateNewsletter as any)(buildConfig());
+
+    await expect(instance.execute()).rejects.toThrow(
+      '[GenerateNewsletter] Output truncated: LLM reached the token limit (finishReason: "length")',
+    );
+  });
+
+  test('throws error with maxOutputTokens value when finishReason is "length" and maxOutputTokens is set', async () => {
+    mockObjectOnce(
+      {
+        title: longTitle,
+        content: 'Truncated',
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: true,
+        factAccuracy: true,
+      },
+      stubUsage,
+      'length',
+    );
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({ maxOutputTokens: 4096 }),
+    );
+
+    await expect(instance.execute()).rejects.toThrow(
+      'Current maxOutputTokens: 4096',
+    );
   });
 
   test('uses provided sampling/penalty options and omits subscribe link when not given', async () => {

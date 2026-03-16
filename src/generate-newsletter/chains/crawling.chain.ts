@@ -11,6 +11,8 @@ import { RunnablePassthrough } from '@langchain/core/runnables';
 import { omit } from 'es-toolkit';
 import { randomUUID } from 'node:crypto';
 
+import { replaceAsciiQuotes } from '~/utils/string';
+
 import { getHtmlFromUrl } from '../utils/get-html-from-url';
 import { Chain, type ChainConfig } from './chain';
 
@@ -406,6 +408,10 @@ export default class CrawlingChain<TaskId> extends Chain<
           return {
             ...omit(listItem, ['pipelineId']),
             ...omit(detail, ['pipelineId']),
+            title: replaceAsciiQuotes(listItem.title),
+            ...(detail.detailContent != null && {
+              detailContent: replaceAsciiQuotes(detail.detailContent),
+            }),
           };
         });
 
