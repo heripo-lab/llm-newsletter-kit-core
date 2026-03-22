@@ -132,7 +132,9 @@ describe('GenerateNewsletter.execute', () => {
     expect(callArg.prompt).toContain('**Tags:** Cloud, Event');
     // Image Analysis appears only for the first post
     const imageAnalysisMatches =
-      callArg.prompt.match(/\*\*Image Analysis:\*\*/g) ?? [];
+      callArg.prompt.match(
+        /\*\*Image Analysis \(supplementary context only/g,
+      ) ?? [];
     expect(imageAnalysisMatches.length).toBe(1);
 
     // schema: should parse returned shape
