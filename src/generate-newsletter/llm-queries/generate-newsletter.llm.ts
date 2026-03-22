@@ -141,6 +141,7 @@ Important rule for displaying date ranges: When displaying date ranges, you must
 4. **Verifiable Information**: All information must be directly verifiable from the provided sources.
 5. **No Speculation**: Do not use speculative expressions like "appears to be" or "is expected to".
 6. **No Fictional Standards/Policies**: Do not mention non-existent standards/policies or systems incorrectly reported as planned for future implementation.
+7. **Image Analysis as Supplementary Context Only**: Image analysis results are provided solely for understanding the general visual context of articles. Do NOT quote specific names, titles, numbers, or detailed facts from image analysis in the newsletter body — these may contain inaccuracies. Only use image analysis to understand the broad theme or mood of the article's visual content.
 
 Roles:
 - Friendly Guide: Deliver information like a trusted colleague rather than a rigid expert. Use appropriate emoticons in titles and section headings to improve readability.
@@ -267,7 +268,7 @@ ${this.targetArticles
 **Tags:** ${[post.tag1, post.tag2, post.tag3].filter(Boolean).join(', ')}
 **Content Type:** ${post.contentType}
 **URL:** ${post.url}
-${post.imageContextByLlm ? `**Image Analysis:** ${post.imageContextByLlm}` : ''}
+${post.imageContextByLlm ? `**Image Analysis (supplementary context only — do not cite specific details from this in the newsletter):** ${post.imageContextByLlm}` : ''}
 `,
   )
   .join('\n\n')}
