@@ -1,8 +1,8 @@
 import type { UnscoredArticle } from '../models/article';
 
-import { Output, generateText } from 'ai';
 import { z } from 'zod';
 
+import { generateObjectByLLM } from './generate-object-by-llm';
 import { LLMQuery, type LLMQueryConfig } from './llm-query';
 
 type Params = {
@@ -31,12 +31,10 @@ export default class ClassifyTags<TaskId> extends LLMQuery<
   public async execute({ existTags }: Params) {
     this.existTags = existTags;
 
-    const { output, usage } = await generateText({
+    const { output, usage } = await generateObjectByLLM({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
-      output: Output.object({
-        schema: this.schema,
-      }),
+      schema: this.schema,
       system: this.systemPrompt,
       prompt: this.userPrompt,
     });

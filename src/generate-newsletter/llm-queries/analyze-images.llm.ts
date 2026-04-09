@@ -1,8 +1,8 @@
 import type { UnscoredArticle } from '../models/article';
 
-import { Output, generateText } from 'ai';
 import { z } from 'zod';
 
+import { generateObjectByLLM } from './generate-object-by-llm';
 import {
   LLMQuery,
   type LLMQueryConfig,
@@ -53,12 +53,10 @@ export default class AnalyzeImages<TaskId> extends LLMQuery<
       return { result: null, usage: ZERO_USAGE };
     }
 
-    const { output, usage } = await generateText({
+    const { output, usage } = await generateObjectByLLM({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
-      output: Output.object({
-        schema: this.schema,
-      }),
+      schema: this.schema,
       system: this.systemPrompt,
       messages: [
         {

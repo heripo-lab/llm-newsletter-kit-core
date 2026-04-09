@@ -1,11 +1,11 @@
 import type { UnscoredArticle } from '../models/article';
 import type { MinimumImportanceScoreRule } from '../models/interfaces';
 
-import { Output, generateText } from 'ai';
 import { z } from 'zod';
 
 import type { DateService } from '~/models/interfaces';
 
+import { generateObjectByLLM } from './generate-object-by-llm';
 import { LLMQuery, type LLMQueryConfig } from './llm-query';
 
 type Config<TaskId> = LLMQueryConfig<TaskId> & {
@@ -38,12 +38,10 @@ export default class DetermineArticleImportance<TaskId> extends LLMQuery<
   }
 
   public async execute() {
-    const { output, usage } = await generateText({
+    const { output, usage } = await generateObjectByLLM({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
-      output: Output.object({
-        schema: this.schema,
-      }),
+      schema: this.schema,
       system: this.systemPrompt,
       prompt: this.userPrompt,
     });
