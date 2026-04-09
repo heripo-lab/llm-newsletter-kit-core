@@ -2,7 +2,6 @@ import type { LanguageModelUsage } from 'ai';
 
 import type { ArticleForGenerateContent } from '../models/article';
 
-import { Output, generateText } from 'ai';
 import { pick } from 'es-toolkit';
 import { z } from 'zod';
 
@@ -10,6 +9,7 @@ import type { UrlString } from '~/models/common';
 import type { DateService } from '~/models/interfaces';
 import type { Newsletter } from '~/models/newsletter';
 
+import { generateObjectByLLM } from './generate-object-by-llm';
 import {
   BaseLLMQuery,
   type BaseLLMQueryConfig,
@@ -87,7 +87,7 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
   }
 
   public async execute(): Promise<LLMQueryExecuteResult<ReturnType>> {
-    const { output, usage, finishReason } = await generateText({
+    const { output, usage, finishReason } = await generateObjectByLLM({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
       maxOutputTokens: this.maxOutputTokens,
@@ -96,9 +96,7 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
       topK: this.topK,
       presencePenalty: this.presencePenalty,
       frequencyPenalty: this.frequencyPenalty,
-      output: Output.object({
-        schema: this.schema,
-      }),
+      schema: this.schema,
       system: this.systemPrompt,
       prompt: this.userPrompt,
     });
