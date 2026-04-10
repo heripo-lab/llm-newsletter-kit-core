@@ -48,11 +48,7 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
   private readonly newsletterBrandName: string;
 
   private readonly schema = z.object({
-    title: z
-      .string()
-      .max(100)
-      .min(20)
-      .describe('Title of the newsletter email'),
+    title: z.string().max(70).min(20).describe('Title of the newsletter email'),
     content: z.string().describe('Email content in markdown format'),
     isWrittenInOutputLanguage: z
       .boolean()
@@ -230,7 +226,7 @@ Output Format & Requirements:
 7. Title Writing Guidelines:${
       this.options.content.titleContext
         ? `\n   - **Required title keyword**: "${this.options.content.titleContext}". This phrase MUST appear in the title. Combine it with key context from today's newsletter content to form a natural, complete title.
-   - Keep title length 20-100 characters and can include 1-2 relevant emoticons.
+   - Keep title length 20-70 characters.
    - Use neutral and objective terms in title (e.g., 'announced', 'implementing', 'deadline approaching').
    - Write title clearly and factually to maintain professionalism and credibility.`
         : `
