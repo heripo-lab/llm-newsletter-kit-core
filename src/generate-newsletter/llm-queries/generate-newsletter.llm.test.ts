@@ -16,6 +16,7 @@ function buildArticles() {
       contentType: 'news',
       url: 'https://a.example',
       imageContextByLlm: 'An image description',
+      publishedDate: '2025-05-20',
     },
     {
       title: 'Post B',
@@ -32,7 +33,8 @@ function buildArticles() {
 
 function buildConfig(overrides: Partial<Record<string, any>> = {}) {
   const dateService = {
-    getDisplayDateString: vi.fn().mockReturnValue('June 1-2, 2025'),
+    getPublicationDisplayDateString: vi.fn().mockReturnValue('June 1-2, 2025'),
+    getPublicationISODateString: vi.fn().mockReturnValue('2025-06-01'),
   };
 
   const base = {
@@ -121,6 +123,7 @@ describe('GenerateNewsletter.execute', () => {
     expect(callArg.system).toContain('June 1-2, 2025');
     expect(callArg.system).toContain('Subscribe to TechPulse');
     expect(callArg.system).toContain('https://example.com/subscribe');
+    expect(callArg.system).toContain('Temporal Validity (HARD RULE)');
 
     // user prompt validations
     expect(typeof callArg.prompt).toBe('string');
@@ -130,6 +133,15 @@ describe('GenerateNewsletter.execute', () => {
     expect(callArg.prompt).toContain('**Title:** Post B');
     expect(callArg.prompt).toContain('**Tags:** AI, Policy');
     expect(callArg.prompt).toContain('**Tags:** Cloud, Event');
+    expect(callArg.prompt).toContain(
+      '**Newsletter Publication Date:** 2025-06-01 (June 1-2, 2025)',
+    );
+    expect(callArg.prompt).toContain('TEMPORAL VALIDITY (HIGHEST PRIORITY)');
+    // Post A has publishedDate, Post B does not
+    expect(callArg.prompt).toContain('**Published Date:** 2025-05-20');
+    const publishedDateMatches =
+      callArg.prompt.match(/\*\*Published Date:\*\*/g) ?? [];
+    expect(publishedDateMatches.length).toBe(1);
     // Image Analysis appears only for the first post
     const imageAnalysisMatches =
       callArg.prompt.match(

@@ -21,8 +21,8 @@ export function createDateService(
   isoDate: string,
 ): DateService {
   return {
-    getDisplayDateString: () => displayDate,
-    getCurrentISODateString: () => isoDate,
+    getPublicationDisplayDateString: () => displayDate,
+    getPublicationISODateString: () => isoDate,
   };
 }
 

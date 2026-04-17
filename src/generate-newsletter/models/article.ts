@@ -1,4 +1,4 @@
-import type { MarkdownString, UrlString } from '~/models/common';
+import type { IsoDateString, MarkdownString, UrlString } from '~/models/common';
 
 /**
  * Structure of an article that has not yet been processed (no importance score, image analysis, or tagging).
@@ -55,6 +55,15 @@ export type UnscoredArticle = {
    * @example "https://example.com/board/notice"
    */
   targetUrl: UrlString;
+
+  /**
+   * (Optional) Original posting/publication date of the article in ISO format (YYYY-MM-DD).
+   * When provided, this is used by LLM queries to judge temporal validity — for example,
+   * whether deadlines or event dates have passed relative to the newsletter publication date.
+   * Implementations that cannot reliably extract this value may omit it.
+   * @example "2024-10-12"
+   */
+  publishedDate?: IsoDateString;
 };
 
 /**

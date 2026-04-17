@@ -143,6 +143,13 @@ Roles:
 - Credibility Builder: All information must be provided with sources. Whenever specific content or titles are mentioned in the body, links must be provided in [original title](URL) format. Understand that source citation is not just formal but a key element in enhancing newsletter credibility and accessibility.
 - Fact Checker: Use only facts from provided source materials. Do not make unsubstantiated claims or speculate beyond the materials.
 
+**Temporal Validity (HARD RULE):**
+The current issue's Newsletter Publication Date is provided in the user prompt. For every article you consider including:
+- If the article's deadline, application period, event date, bid closing date, or recruitment period has already passed relative to the Newsletter Publication Date, you MUST EXCLUDE the article from the newsletter body entirely, regardless of its importance score.
+- Exception: Academic outputs (published journal articles, research outputs, past conference proceedings with reference value) may be retained.
+- If the article provides an Article Published Date and it is older than 30 days relative to the Newsletter Publication Date, treat it as suspicious for freshness and include only if it still has clear forward-looking relevance (e.g., an ongoing program whose deadline has not passed).
+- Do not list or mention excluded articles even as "also notable" or in tables.
+
 **Important Prohibitions:**
 - Do not bundle or omit structured list items (permits/reports/notices etc.) with "... and n more" etc. (tables must list all items in individual rows).
 - Do not describe policies or plans of governments/organizations/companies not explicitly mentioned in sources as facts.
@@ -176,9 +183,9 @@ Copyright Protection & Fact-Checking Principles:
 Output Format & Requirements:
 1. Language: ${this.options.content.outputLanguage}
 
-2. Start: ${this.options.content.freeFormIntro ? 'Begin directly with the Overall Briefing section (no separate opening heading or greeting).' : `Specify date (${this.dateService.getDisplayDateString()}) and begin with neutral, objective greeting. Briefly introduce key factual information to be covered in today's newsletter.`}
+2. Start: ${this.options.content.freeFormIntro ? 'Begin directly with the Overall Briefing section (no separate opening heading or greeting).' : `Specify date (${this.dateService.getPublicationDisplayDateString()}) and begin with neutral, objective greeting. Briefly introduce key factual information to be covered in today's newsletter.`}
 
-3. Overall Briefing: Before the main listing, create a briefing section conveying objective facts about today's news${this.options.content.freeFormIntro ? `. Structure: Start with a Heading 2 (##) briefing section heading in the format "## 📮 ${this.dateService.getDisplayDateString()} [Briefing/Summary word in output language]" (e.g., "## 📮 2월 6일 브리핑" for Korean, "## 📮 Feb 6 Briefing" for English) — do NOT include domain or field names in the heading. Immediately follow with a brief paragraph introducing key factual information to be covered in today's newsletter, then include the following bullet points:` : ' in these aspects:'}
+3. Overall Briefing: Before the main listing, create a briefing section conveying objective facts about today's news${this.options.content.freeFormIntro ? `. Structure: Start with a Heading 2 (##) briefing section heading in the format "## 📮 ${this.dateService.getPublicationDisplayDateString()} [Briefing/Summary word in output language]" (e.g., "## 📮 2월 6일 브리핑" for Korean, "## 📮 Feb 6 Briefing" for English) — do NOT include domain or field names in the heading. Immediately follow with a brief paragraph introducing key factual information to be covered in today's newsletter, then include the following bullet points:` : ' in these aspects:'}
    - Key Trends: Explain major patterns or trends found in this news based on data. Ex: 'Over 00% of today's news relates to 00'.
    - Immediate Impact: Emphasize most important changes or decisions affecting industry immediately, specifically mentioning which fields will be most impacted.
 
@@ -240,7 +247,7 @@ Output Format & Requirements:
 
 8. Additional Requirements:
    - Comprehensively analyze posts to create email containing most important information for ${this.expertFields.join(', ')} field experts.
-   ${this.options.content.freeFormIntro ? '' : `- Naturally include date at beginning in the format: "${this.dateService.getDisplayDateString()} ${this.expertFields.join(', ')} [News Term]". Replace [News Term] with the word for "News" appropriate for the output language (e.g., "News" for English, "소식" for Korean). Declare this part as \`Heading 1\`(#).\n   `}- Write body in markdown format, effectively using headings(#, ##, ###), bold(**), italics(_), bullet points(-, *) etc. to improve readability.
+   ${this.options.content.freeFormIntro ? '' : `- Naturally include date at beginning in the format: "${this.dateService.getPublicationDisplayDateString()} ${this.expertFields.join(', ')} [News Term]". Replace [News Term] with the word for "News" appropriate for the output language (e.g., "News" for English, "소식" for Korean). Declare this part as \`Heading 1\`(#).\n   `}- Write body in markdown format, effectively using headings(#, ##, ###), bold(**), italics(_), bullet points(-, *) etc. to improve readability.
    - Group related news to provide broader context, and mention development status if there's continuity with content covered in previous issues.
    - **Source citation is most important for ensuring credibility.** Must provide links in [original title](URL) format using source's title. Do not write as "View", "Article", "[Post3](URL)" format.
    - Specify source whenever article titles or content are quoted in newsletter, ensure all information is provided with links.
@@ -261,7 +268,7 @@ ${this.targetArticles
 **Importance:** ${post.importanceScore}/10
 **Tags:** ${[post.tag1, post.tag2, post.tag3].filter(Boolean).join(', ')}
 **Content Type:** ${post.contentType}
-**URL:** ${post.url}
+**URL:** ${post.url}${post.publishedDate ? `\n**Published Date:** ${post.publishedDate}` : ''}
 ${post.imageContextByLlm ? `**Image Analysis (supplementary context only — do not cite specific details from this in the newsletter):** ${post.imageContextByLlm}` : ''}
 `,
   )
@@ -270,7 +277,11 @@ ${post.imageContextByLlm ? `**Image Analysis (supplementary context only — do 
 
 ---
 **Comprehensive Analysis and Daily Newsletter Generation Request:**
-Based on all post information provided above, please generate a ${this.expertFields.join(', ')} trends newsletter for ${this.dateService.getDisplayDateString()}. Please note the following:
+**Newsletter Publication Date:** ${this.dateService.getPublicationISODateString()} (${this.dateService.getPublicationDisplayDateString()})
+
+Based on all post information provided above, please generate a ${this.expertFields.join(', ')} trends newsletter for ${this.dateService.getPublicationDisplayDateString()}. Please note the following:
+
+0. **TEMPORAL VALIDITY (HIGHEST PRIORITY):** Before anything else, apply the Temporal Validity HARD RULE from the system prompt. Any post whose deadline/event has passed relative to the Newsletter Publication Date above MUST be excluded from the newsletter body. Do not reference excluded posts anywhere.
 
 1. **STRICT LENGTH CONTROL BY IMPORTANCE SCORE:**
    - 9-10 points: Full detailed coverage allowed (Key Facts + Targets + Dates + Related Facts)

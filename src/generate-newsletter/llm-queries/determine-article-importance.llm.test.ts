@@ -41,8 +41,8 @@ describe('DetermineArticleImportance', () => {
       options,
       loggingExecutor,
       dateService: {
-        getCurrentISODateString: () => date,
-        getDisplayDateString: () => date,
+        getPublicationISODateString: () => date,
+        getPublicationDisplayDateString: () => date,
       },
     });
 
@@ -78,17 +78,23 @@ describe('DetermineArticleImportance', () => {
     expect(callArg.system).toContain('AI');
     expect(callArg.system).toContain('Importance Score Criteria (1-10)');
     expect(callArg.system).toContain(
-      '1: Information without current significance',
+      '1: **Information without current practical value**',
     );
     expect(callArg.system).toContain(
       '(However, recent academic achievements maintain high scores)',
     );
+    expect(callArg.system).toContain('as of the Newsletter Publication Date');
+    expect(callArg.system).toContain('HARD RULE — Temporal Expiration');
 
     // user prompt should include date, title, content, tags; exclude Image Analysis
     expect(callArg.prompt).toContain(
       'Please rate the importance of this article from 1 to 10.',
     );
     expect(callArg.prompt).toContain(date);
+    expect(callArg.prompt).toContain('**Newsletter Publication Date:**');
+    expect(callArg.prompt).not.toContain('**Current Date:**');
+    expect(callArg.prompt).not.toContain('**Article Published Date:**');
+    expect(callArg.prompt).toContain('Before assigning a score');
     expect(callArg.prompt).toContain(targetArticle.title);
     expect(callArg.prompt).toContain(targetArticle.detailContent);
     expect(callArg.prompt).toContain(
@@ -139,8 +145,8 @@ describe('DetermineArticleImportance', () => {
       loggingExecutor,
       minimumImportanceScoreRules,
       dateService: {
-        getCurrentISODateString: () => date,
-        getDisplayDateString: () => date,
+        getPublicationISODateString: () => date,
+        getPublicationDisplayDateString: () => date,
       },
     });
 
@@ -163,17 +169,20 @@ describe('DetermineArticleImportance', () => {
     expect(callArg.system).toContain('Robotics');
     expect(callArg.system).toContain('Importance Score Criteria (5-10)');
     expect(callArg.system).not.toContain(
-      '1: Information without current significance',
+      '1: **Information without current practical value**',
     );
     expect(callArg.system).not.toContain(
       '(However, recent academic achievements maintain high scores)',
     );
+    expect(callArg.system).not.toContain('HARD RULE — Temporal Expiration');
 
     // user prompt should include image analysis and correct min point
     expect(callArg.prompt).toContain(
       'Please rate the importance of this article from 5 to 10.',
     );
     expect(callArg.prompt).toContain(date);
+    expect(callArg.prompt).toContain('**Newsletter Publication Date:**');
+    expect(callArg.prompt).not.toContain('Before assigning a score');
     expect(callArg.prompt).toContain(targetArticle.title);
     expect(callArg.prompt).toContain(targetArticle.detailContent);
     expect(callArg.prompt).toContain(
@@ -181,6 +190,60 @@ describe('DetermineArticleImportance', () => {
     );
     expect(callArg.prompt).toContain('**Image Analysis:**');
     expect(callArg.prompt).toContain(targetArticle.imageContextByLlm);
+  });
+
+  test('includes Article Published Date line when targetArticle.publishedDate is provided', async () => {
+    const model: any = { name: 'fake-model-pubdate' };
+    const logger: any = {
+      info: vi.fn(),
+      error: vi.fn(),
+      warn: vi.fn(),
+      debug: vi.fn(),
+    };
+    const loggingExecutor: any = {
+      executeWithLogging: vi.fn(async (_taskId: any, fn: any) => fn()),
+    };
+
+    const options: any = {
+      content: { outputLanguage: 'Korean', expertField: 'AI' },
+      llm: { maxRetries: 2 },
+    };
+
+    const targetArticle: any = {
+      targetUrl: 'https://example.com/with-pubdate',
+      title: 'Dated Article',
+      detailContent: 'Body',
+      tag1: 'T1',
+      tag2: 'T2',
+      tag3: 'T3',
+      publishedDate: '2024-05-01',
+    };
+
+    const query = new DetermineArticleImportance({
+      model,
+      logger,
+      taskId: 'task-pubdate',
+      targetArticle,
+      options,
+      loggingExecutor,
+      dateService: {
+        getPublicationISODateString: () => '2024-05-15',
+        getPublicationDisplayDateString: () => 'May 15, 2024',
+      },
+    });
+
+    vi.mocked(generateText).mockResolvedValue({
+      output: { importanceScore: 6 },
+      usage: {},
+    } as any);
+
+    await query.execute();
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+    expect(callArg.prompt).toContain(
+      '**Newsletter Publication Date:** 2024-05-15',
+    );
+    expect(callArg.prompt).toContain('**Article Published Date:** 2024-05-01');
   });
 });
 
@@ -225,8 +288,8 @@ describe('DetermineArticleImportance - fallbacks', () => {
       options,
       loggingExecutor,
       dateService: {
-        getCurrentISODateString: () => date,
-        getDisplayDateString: () => date,
+        getPublicationISODateString: () => date,
+        getPublicationDisplayDateString: () => date,
       },
     });
 
