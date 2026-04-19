@@ -35,7 +35,7 @@ describe('ContentGenerateChain', () => {
   const createChain = (overrides?: Partial<any>) => {
     const logger = { debug: vi.fn(), info: vi.fn(), error: vi.fn() } as any;
     const dateService = {
-      getCurrentISODateString: vi.fn().mockReturnValue('2024-01-01'),
+      getPublicationISODateString: vi.fn().mockReturnValue('2024-01-01'),
     } as any;
 
     const provider = {

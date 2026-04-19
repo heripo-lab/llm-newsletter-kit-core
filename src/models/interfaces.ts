@@ -36,18 +36,27 @@ export interface EmailService {
 
 /**
  * Service that provides dates for internal use or insertion into the newsletter.
- * Clients can consider locale/language/timezone themselves.
+ *
+ * Semantics: every method on this interface represents the **newsletter publication
+ * date** — i.e. the date the issue is (or will be) published. This may not be
+ * "today" in wall-clock terms: if a caller builds an issue the night before its
+ * scheduled release, they should inject tomorrow's date here.
+ *
+ * Clients are responsible for locale/language/timezone handling in their
+ * implementation.
  */
 export interface DateService {
   /**
-   * Return current date in ISO format (YYYY-MM-DD).
+   * Return the newsletter publication date in ISO format (YYYY-MM-DD).
    * @returns ISO date string
    * @example "2024-10-15"
    */
-  getCurrentISODateString: () => IsoDateString;
+  getPublicationISODateString: () => IsoDateString;
 
   /**
-   * Return a localized display date string for use in newsletter content.
+   * Return a localized display string of the newsletter publication date
+   * for use in newsletter content.
+   * @example "10월 15일"
    */
-  getDisplayDateString: () => string;
+  getPublicationDisplayDateString: () => string;
 }

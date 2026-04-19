@@ -218,7 +218,7 @@ export default class ContentGenerateChain<TaskId> extends Chain<
             ...coreContent,
             htmlBody: juice(html),
             issueOrder: this.provider.issueOrder,
-            date: this.dateService.getCurrentISODateString(),
+            date: this.dateService.getPublicationISODateString(),
           },
           usedArticles: candidateArticles,
         });

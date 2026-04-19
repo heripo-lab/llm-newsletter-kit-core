@@ -76,15 +76,25 @@ Importance Score Criteria (${this.minPoint}-10):
 5-6: General important information limited to specific fields or regions (e.g., small project permits, general event notices, small-scale bids)
 4-5: General industry news or small/medium-scale event information
 2-3: Simple information sharing or repetitive daily news
-${this.hasHigherMinimumScore ? '' : `1: Information without current significance - Expired support programs, past events, invalid bid notices or recruitment information, notices that have lost practical value, or administrative/simple notices like "membership fee status", "meeting minutes", "internal schedule notices"`}
+${this.hasHigherMinimumScore ? '' : `1: **Information without current practical value** - Expired support programs, past events, invalid bid notices or recruitment information, notices that have lost practical value, or administrative/simple notices like "membership fee status", "meeting minutes", "internal schedule notices"`}
 
 Evaluation Criteria:
 - Academic Value: Journal publications, research reports, academic seminars/symposiums, research output presentations etc. minimum 7 points (knowledge base expansion and long-term reference value)
 - Practical Impact: Information requiring immediate response like policies, regulations, bids, recruitment
 - Impact Range: How many stakeholders are affected
 - Scarcity: How rare and exclusive the information is
-- Temporal Context: Practical value at current time considering deadlines, event schedules${this.hasHigherMinimumScore ? '' : ' (However, recent academic achievements maintain high scores)'}
-
+- Temporal Context: Practical value as of the Newsletter Publication Date considering deadlines, event schedules${this.hasHigherMinimumScore ? '' : ' (However, recent academic achievements maintain high scores)'}
+${
+  this.hasHigherMinimumScore
+    ? ''
+    : `
+**HARD RULE — Temporal Expiration (MUST):**
+- Compare the Newsletter Publication Date (given in the user prompt) against any deadline, application period, event date, bid closing date, recruitment period, or validity period mentioned in the article (and the Article Published Date when provided).
+- If the article's deadline/event has already passed relative to the Newsletter Publication Date, you MUST score it 1, regardless of other criteria. This overrides all other considerations.
+- Exception: Academic outputs (journal publications, published research, completed conference proceedings) retain their score based on reference value; do not downgrade these under this rule.
+- If no deadline/event is mentioned and no temporal cue is available, this rule does not apply.
+`
+}
 Important Notes:
 - Evaluate considering characteristics and context of ${this.expertFields.join(', ')} fields.
 - Be sensitive to core keywords, events, policies considered important in the field.`;
@@ -93,7 +103,12 @@ Important Notes:
   private get userPrompt() {
     return `Please rate the importance of this article from ${this.minPoint} to 10.
 
-**Current Date:** ${this.dateService.getCurrentISODateString()}
+**Newsletter Publication Date:** ${this.dateService.getPublicationISODateString()}${
+      this.targetArticle.publishedDate
+        ? `
+**Article Published Date:** ${this.targetArticle.publishedDate}`
+        : ''
+    }
 
 **Title:** ${this.targetArticle.title || 'No Title'}
 
@@ -105,6 +120,12 @@ ${
     ? `
 **Image Analysis:** ${this.targetArticle.imageContextByLlm}`
     : ''
-}`;
+}${
+      this.hasHigherMinimumScore
+        ? ''
+        : `
+
+Before assigning a score, explicitly check whether any deadline, application period, event date, bid closing date, or recruitment period in the article has already passed relative to the Newsletter Publication Date above. If so and the HARD RULE applies, assign 1.`
+    }`;
   }
 }

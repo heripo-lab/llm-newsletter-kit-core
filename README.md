@@ -87,8 +87,8 @@ const config: GenerateNewsletterConfig<string> = {
     // titleContext: 'AI Weekly',  // Optional: keyword to include in title
   },
   dateService: {
-    getCurrentISODateString: () => new Date().toISOString().split('T')[0],
-    getDisplayDateString: () => new Date().toLocaleDateString('en-US'),
+    getPublicationISODateString: () => new Date().toISOString().split('T')[0],
+    getPublicationDisplayDateString: () => new Date().toLocaleDateString('en-US'),
   },
   taskService: {
     start: async () => `task-${Date.now()}`,
