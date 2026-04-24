@@ -29,6 +29,7 @@ AGENTS.md
 .aider*
 .claude/
 *.ai.md
+.agents/
 
 # playground runtime data & output
 playground/data/
