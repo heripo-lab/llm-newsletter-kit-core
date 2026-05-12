@@ -249,6 +249,13 @@ For academic papers or research documentation, you may use the following BibTeX 
 }
 ```
 
+## Sponsor
+
+If you’d like to support heripo lab's open-source research, you can sponsor us through:
+
+- [Open Collective](https://opencollective.com/heripo-project) for general project sponsorship.
+- [fairy.hada.io/@heripo](https://fairy.hada.io/@heripo) for Korean individual supporters who prefer KRW payments.
+
 ## License
 
 Apache-2.0 © 2025-present kimhongyeon. See LICENSE and NOTICE for details.
