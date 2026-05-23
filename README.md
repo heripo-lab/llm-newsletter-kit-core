@@ -3,10 +3,10 @@
 > **Automate domain-expert newsletters powered by AI**
 
 [
-  ![CI](https://github.com/heripo-lab/llm-newsletter-kit-core/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/heripo-lab/llm-newsletter-kit-core/actions/workflows/ci.yml/badge.svg)
 ](https://github.com/heripo-lab/llm-newsletter-kit-core/actions/workflows/ci.yml)
 [
-  ![npm version](https://img.shields.io/npm/v/%40llm-newsletter-kit/core?logo=npm&color=cb0000)
+![npm version](https://img.shields.io/npm/v/%40llm-newsletter-kit/core?logo=npm&color=cb0000)
 ](https://www.npmjs.com/package/@llm-newsletter-kit/core)
 ![coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ![license](https://img.shields.io/github/license/heripo-lab/llm-newsletter-kit-core)
@@ -27,11 +27,12 @@ A type‑first, extensible toolkit that automates LLM‑based newsletter creatio
 
 This project originated from a **Korean cultural heritage newsletter service** called “Research Radar.”
 
-It was architected by **Kim Hongyeon**, a unique **archaeologist-turned-software engineer**. Driven by a question he held for over a decade—***"Why must research be such grueling manual labor?"***—he combined his domain expertise with 10+ years of engineering experience to solve this problem.
+It was architected by **Kim Hongyeon**, a unique **archaeologist-turned-software engineer**. Driven by a question he held for over a decade—**_"Why must research be such grueling manual labor?"_**—he combined his domain expertise with 10+ years of engineering experience to solve this problem.
 
 After completing an academic research project on [A Study on Archaeological Informatization Using Large Language Models (LLMs)](https://poc.heripo.org), a personal automation script created to keep up with academic trends evolved into a service with a high engagement rate (15% CTR) and near-zero maintenance cost.
 
 **Real-world production metrics:**
+
 - **LLM API cost:** $0.2-1 USD per issue with optimized model usage
 - **Operational overhead:** Truly hands-off automation—runs 24/7 without human intervention; the only ongoing work is occasional code maintenance
 - **Time investment:** Set it up once, let it run indefinitely; it operates while you sleep
@@ -44,6 +45,7 @@ His design philosophy: **"Logic in code, reasoning in AI, connections in archite
 - **Research Radar (Reference Implementation):** A real-world application built with this Core. It serves as a live demo and a "preset" for how to implement the providers.
 
 **Quick Links**
+
 - Research Radar (Live Service): https://heripo.app/research-radar/subscribe
 - Source Code (Usage Example): https://github.com/heripo-lab/heripo-research-radar
 
@@ -52,6 +54,7 @@ His design philosophy: **"Logic in code, reasoning in AI, connections in archite
 Newsletter automation generally falls into two approaches: no-code and code-based. **This kit takes the code-based approach because it produces significantly better output quality.**
 
 **Key advantages:**
+
 - **Advanced AI workflows**: Implement sophisticated techniques like self-reflection, chain-of-thought reasoning, and multi-step verification—impossible or prohibitively expensive in no-code platforms
 - **Cost control**: Use different models per stage, cap tokens, control retries, and prevent runaway costs with granular configuration
 - **Full customization**: Swap any component (crawlers, LLMs, databases, email) via Provider interfaces without vendor lock-in
@@ -73,9 +76,10 @@ npm i @llm-newsletter-kit/core
 ## Quick Start
 
 ```ts
-import { GenerateNewsletter } from '@llm-newsletter-kit/core';
 import type { GenerateNewsletterConfig } from '@llm-newsletter-kit/core';
+
 import { createOpenAI } from '@ai-sdk/openai';
+import { GenerateNewsletter } from '@llm-newsletter-kit/core';
 
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -88,7 +92,8 @@ const config: GenerateNewsletterConfig<string> = {
   },
   dateService: {
     getPublicationISODateString: () => new Date().toISOString().split('T')[0],
-    getPublicationDisplayDateString: () => new Date().toLocaleDateString('en-US'),
+    getPublicationDisplayDateString: () =>
+      new Date().toLocaleDateString('en-US'),
   },
   taskService: {
     start: async () => `task-${Date.now()}`,
@@ -96,8 +101,12 @@ const config: GenerateNewsletterConfig<string> = {
   },
   crawlingProvider: {
     // customFetch: myProxyFetch,  // Optional: custom fetch for proxy support
-    crawlingTargetGroups: [/* ... */],
-    fetchExistingArticlesByUrls: async (urls) => [/* ... */],
+    crawlingTargetGroups: [
+      /* ... */
+    ],
+    fetchExistingArticlesByUrls: async (urls) => [
+      /* ... */
+    ],
     saveCrawledArticles: async (articles, context) => articles.length,
   },
   analysisProvider: {
@@ -105,8 +114,12 @@ const config: GenerateNewsletterConfig<string> = {
     classifyTagOptions: { model: openai('gpt-5-mini') },
     analyzeImagesOptions: { model: openai('gpt-5.1') },
     determineScoreOptions: { model: openai('gpt-5.1') },
-    fetchUnscoredArticles: async () => [/* ... */],
-    fetchTags: async () => [/* ... */],
+    fetchUnscoredArticles: async () => [
+      /* ... */
+    ],
+    fetchTags: async () => [
+      /* ... */
+    ],
     update: async (article) => {},
   },
   contentGenerateProvider: {
@@ -115,7 +128,9 @@ const config: GenerateNewsletterConfig<string> = {
     issueOrder: 1,
     newsletterBrandName: 'Tech Insight Weekly',
     publicationCriteria: { minimumArticleCountForIssue: 5 },
-    fetchArticleCandidates: async () => [/* ... */],
+    fetchArticleCandidates: async () => [
+      /* ... */
+    ],
     htmlTemplate: ({ content }) => `<html>...</html>`,
     saveNewsletter: async ({ newsletter }) => ({ id: 1 }),
   },
@@ -126,6 +141,7 @@ const newsletterId = await generator.generate();
 ```
 
 **⚠️ This is a minimal example showing the structure. For a complete, production-ready implementation with:**
+
 - Real database integration (Prisma/Drizzle)
 - Actual crawling targets and parsing logic
 - HTML email templates
@@ -153,10 +169,10 @@ For detailed field descriptions, see `src/generate-newsletter/models/interfaces.
 
 ## Architecture & Flow
 
-1) CrawlingChain: Collect/parse/save articles from targets
-2) AnalysisChain: Tagging/image analysis/importance scoring and update
-3) ContentGenerateChain: Select candidates → generate Markdown via LLM → apply template (HTML) → save → return id
-4) If previewNewsletter option is present, send a preview email
+1. CrawlingChain: Collect/parse/save articles from targets
+2. AnalysisChain: Tagging/image analysis/importance scoring and update
+3. ContentGenerateChain: Select candidates → generate Markdown via LLM → apply template (HTML) → save → return id
+4. If previewNewsletter option is present, send a preview email
 
 All chains are composed as a single pipeline using `@langchain/core/runnables` sequence.
 
@@ -177,11 +193,13 @@ Playground scripts let you run individual LLM query classes in isolation — no 
 ### Setup
 
 1. Install playground dependencies:
+
    ```bash
    npm install -D tsx @ai-sdk/openai
    ```
 
 2. Copy example data files and customize:
+
    ```bash
    mkdir -p playground/data
    cp playground/data-examples/config.example.json playground/data/config.json
@@ -202,16 +220,17 @@ npm run playground:generate-newsletter
 ### Output
 
 Results are saved to `playground/output/` (git-ignored):
+
 - `newsletter.md` — Generated markdown with title in frontmatter
 - `newsletter.html` — Rendered HTML with CSS inlined (juice)
 
 ### Data Management
 
-| Directory | Git | Purpose |
-|---|---|---|
-| `playground/data-examples/` | Tracked | Format reference files (`.example.*`) |
-| `playground/data/` | Ignored | Your actual config, articles, templates |
-| `playground/output/` | Ignored | Generated results |
+| Directory                   | Git     | Purpose                                 |
+| --------------------------- | ------- | --------------------------------------- |
+| `playground/data-examples/` | Tracked | Format reference files (`.example.*`)   |
+| `playground/data/`          | Ignored | Your actual config, articles, templates |
+| `playground/output/`        | Ignored | Generated results                       |
 
 ## Development / Build / Test / CI
 
@@ -220,6 +239,7 @@ For the full developer guide (environment, scripts, testing/coverage, and CI), s
 ## Contributing & Policies
 
 Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md) for all contribution guidelines and project policies, including:
+
 - Issue labels and triage
 - Branch strategy and PR process
 - Versioning and release policy

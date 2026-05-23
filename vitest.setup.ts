@@ -16,7 +16,7 @@ vi.mock('~/utils/string', async () => {
   return await vi.importActual('./src/utils/string');
 });
 vi.mock('~/utils/markdown-to-html', async () => ({
-  default: vi.fn((s: string) => s)
+  default: vi.fn((s: string) => s),
 }));
 
 beforeEach(() => {
