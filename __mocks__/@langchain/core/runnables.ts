@@ -4,7 +4,8 @@
 // Internal state for assertions/control
 const assignCalls: Array<Record<string, any>> = [];
 const fromCalls: Array<any[]> = [];
-let sequenceInvokeImpl: () => Promise<any> = async () => 'SEQUENCE_RESULT' as any;
+let sequenceInvokeImpl: () => Promise<any> = async () =>
+  'SEQUENCE_RESULT' as any;
 
 // Utility to build a pipeline step from a mapping
 // Each mapping entry is a function that receives the current context and returns a value for that key
@@ -25,9 +26,9 @@ function assign(mapping: Record<string, any>) {
   assignCalls.push(mapping);
 
   // steps start with initial mapping application
-  const steps: Array<(ctx: Record<string, any>) => Promise<Record<string, any>>> = [
-    makeStep(mapping as any),
-  ];
+  const steps: Array<
+    (ctx: Record<string, any>) => Promise<Record<string, any>>
+  > = [makeStep(mapping as any)];
 
   const pipeline: any = {
     // Expose mapping keys directly so callers can access functions like top['group-1']()
@@ -39,7 +40,9 @@ function assign(mapping: Record<string, any>) {
           return await next.invoke(ctx);
         });
       } else {
-        steps.push(makeStep(next as Record<string, (ctx: Record<string, any>) => any>));
+        steps.push(
+          makeStep(next as Record<string, (ctx: Record<string, any>) => any>),
+        );
       }
       return pipeline;
     },

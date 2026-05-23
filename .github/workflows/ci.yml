@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: Lint, Typecheck, Build, Test
+    name: Format, Lint, Typecheck, Build, Test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,6 +28,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Format check
+        run: npm run format:check
 
       - name: Lint (quiet)
         run: npm run lint:ci
