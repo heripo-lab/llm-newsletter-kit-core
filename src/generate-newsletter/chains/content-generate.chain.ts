@@ -5,7 +5,6 @@ import type { RequiredHtmlTemplate } from '../models/template';
 import { RunnablePassthrough } from '@langchain/core/runnables';
 import { pick } from 'es-toolkit';
 import { JSDOM } from 'jsdom';
-import juice from 'juice';
 import safeMarkdown2Html from 'safe-markdown2html';
 
 import { LoggingExecutor } from '~/logging/logging-executor';
@@ -17,6 +16,11 @@ import GenerateNewsletter from '../llm-queries/generate-newsletter.llm';
 import { Chain, type ChainConfig } from './chain';
 
 type CoreContent = Pick<Newsletter, 'title' | 'content'>;
+
+async function inlineCss(html: string): Promise<string> {
+  const { default: juice } = await import('juice');
+  return juice(html);
+}
 
 type Config<TaskId> = ChainConfig<TaskId, ContentGenerateProvider> & {
   dateService: DateService;
@@ -216,7 +220,7 @@ export default class ContentGenerateChain<TaskId> extends Chain<
         const { id } = await this.provider.saveNewsletter({
           newsletter: {
             ...coreContent,
-            htmlBody: juice(html),
+            htmlBody: await inlineCss(html),
             issueOrder: this.provider.issueOrder,
             date: this.dateService.getPublicationISODateString(),
           },

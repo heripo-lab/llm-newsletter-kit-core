@@ -3,7 +3,6 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createTogetherAI } from '@ai-sdk/togetherai';
 import { JSDOM } from 'jsdom';
-import juice from 'juice';
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import safeMarkdown2Html from 'safe-markdown2html';
@@ -143,6 +142,7 @@ async function main() {
     .replace(`{{${contentMarker}}}`, contentHtml);
 
   // 8. Inline CSS with juice
+  const { default: juice } = await import('juice');
   renderedHtml = juice(renderedHtml);
 
   // 9. Save outputs
