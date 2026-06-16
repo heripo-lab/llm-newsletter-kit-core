@@ -1,5 +1,9 @@
 import type { UnscoredArticle } from '../models/article';
 import type { MinimumImportanceScoreRule } from '../models/interfaces';
+import type {
+  DetermineImportancePromptContext,
+  PromptBuilder,
+} from '../models/prompt-provider';
 
 import { z } from 'zod';
 
@@ -11,6 +15,7 @@ import { LLMQuery, type LLMQueryConfig } from './llm-query';
 type Config<TaskId> = LLMQueryConfig<TaskId> & {
   minimumImportanceScoreRules?: MinimumImportanceScoreRule[];
   dateService: DateService;
+  promptBuilder?: PromptBuilder<DetermineImportancePromptContext>;
 };
 
 export default class DetermineArticleImportance<TaskId> extends LLMQuery<
@@ -29,12 +34,14 @@ export default class DetermineArticleImportance<TaskId> extends LLMQuery<
   });
 
   private readonly dateService: DateService;
+  private readonly promptBuilder?: PromptBuilder<DetermineImportancePromptContext>;
 
   constructor(config: Config<TaskId>) {
     super(config);
 
     this.minimumImportanceScoreRules = config.minimumImportanceScoreRules ?? [];
     this.dateService = config.dateService;
+    this.promptBuilder = config.promptBuilder;
   }
 
   public async execute() {
@@ -61,7 +68,20 @@ export default class DetermineArticleImportance<TaskId> extends LLMQuery<
     return this.minPoint > 1;
   }
 
-  private get systemPrompt() {
+  private get promptContext(): DetermineImportancePromptContext {
+    return {
+      expertFields: this.expertFields,
+      targetArticle: this.targetArticle,
+      dateService: this.dateService,
+      minimumImportanceScoreRules: this.minimumImportanceScoreRules,
+    };
+  }
+
+  private get systemPrompt(): string {
+    if (this.promptBuilder?.system) {
+      return this.promptBuilder.system(this.promptContext);
+    }
+
     return `You are an expert in importance evaluation in the field of ${this.expertFields.join(', ')}.
 
 Role:
@@ -100,7 +120,11 @@ Important Notes:
 - Be sensitive to core keywords, events, policies considered important in the field.`;
   }
 
-  private get userPrompt() {
+  private get userPrompt(): string {
+    if (this.promptBuilder?.user) {
+      return this.promptBuilder.user(this.promptContext);
+    }
+
     return `Please rate the importance of this article from ${this.minPoint} to 10.
 
 **Newsletter Publication Date:** ${this.dateService.getPublicationISODateString()}${

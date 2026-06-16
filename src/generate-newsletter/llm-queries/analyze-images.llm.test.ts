@@ -156,6 +156,48 @@ describe('AnalyzeImages', () => {
     ]);
   });
 
+  test('uses custom promptBuilder for system and user prompts', async () => {
+    const detailContent = '![a](https://img.com/a.png)\nSome text';
+    const customSystem = vi.fn().mockReturnValue('custom system');
+    const customUser = vi.fn().mockReturnValue('custom user text');
+
+    const query = buildQuery({
+      targetArticle: {
+        title: 'Custom prompt test',
+        detailContent,
+        hasAttachedImage: true,
+      },
+      promptBuilder: { system: customSystem, user: customUser },
+    });
+
+    const stubUsage = { inputTokens: 10, outputTokens: 5, totalTokens: 15 };
+    vi.mocked(generateText).mockResolvedValue({
+      output: { imageContext: 'result' },
+      usage: stubUsage,
+    } as any);
+
+    await query.execute();
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+    expect(callArg.system).toBe('custom system');
+
+    const textPart = callArg.messages[0].content[0];
+    expect(textPart.text).toBe('custom user text');
+
+    expect(customSystem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expertFields: ['AI'],
+        outputLanguage: 'Korean',
+      }),
+    );
+    expect(customUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expertFields: ['AI'],
+        outputLanguage: 'Korean',
+      }),
+    );
+  });
+
   test('filters out invalid URLs and empty URLs from image extraction', async () => {
     const detailContent = [
       '![valid](https://ok.com/img.png)',

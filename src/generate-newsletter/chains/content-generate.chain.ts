@@ -7,6 +7,7 @@ import { pick } from 'es-toolkit';
 import { JSDOM } from 'jsdom';
 import safeMarkdown2Html from 'safe-markdown2html';
 
+import type { PromptProvider } from '~/generate-newsletter/models/prompt-provider';
 import { LoggingExecutor } from '~/logging/logging-executor';
 import type { DateService } from '~/models/interfaces';
 import type { Newsletter } from '~/models/newsletter';
@@ -24,6 +25,7 @@ async function inlineCss(html: string): Promise<string> {
 
 type Config<TaskId> = ChainConfig<TaskId, ContentGenerateProvider> & {
   dateService: DateService;
+  promptProvider?: PromptProvider['contentGenerate'];
 };
 
 export default class ContentGenerateChain<TaskId> extends Chain<
@@ -34,11 +36,13 @@ export default class ContentGenerateChain<TaskId> extends Chain<
   private readonly minimumArticleCountForIssue: number;
   private readonly priorityArticleScoreThreshold: number;
   private readonly htmlTemplate: RequiredHtmlTemplate;
+  private readonly promptProvider?: PromptProvider['contentGenerate'];
 
   constructor(config: Config<TaskId>) {
     super(config);
 
     this.dateService = config.dateService;
+    this.promptProvider = config.promptProvider;
     this.minimumArticleCountForIssue =
       config.provider.publicationCriteria?.minimumArticleCountForIssue ?? 5;
     this.priorityArticleScoreThreshold =
@@ -158,6 +162,7 @@ export default class ContentGenerateChain<TaskId> extends Chain<
           subscribePageUrl: this.provider.subscribePageUrl,
           newsletterBrandName: this.provider.newsletterBrandName,
           dateService: this.dateService,
+          promptBuilder: this.promptProvider?.generateNewsletter,
         });
 
         const { result } = await generateNewsletter.execute();

@@ -1,9 +1,17 @@
 import type { UnscoredArticle } from '../models/article';
+import type {
+  ClassifyTagsPromptContext,
+  PromptBuilder,
+} from '../models/prompt-provider';
 
 import { z } from 'zod';
 
 import { generateObjectByLLM } from './generate-object-by-llm';
 import { LLMQuery, type LLMQueryConfig } from './llm-query';
+
+type Config<TaskId> = LLMQueryConfig<TaskId> & {
+  promptBuilder?: PromptBuilder<ClassifyTagsPromptContext>;
+};
 
 type Params = {
   existTags: string[];
@@ -22,10 +30,12 @@ export default class ClassifyTags<TaskId> extends LLMQuery<
     tag3: z.string(),
   });
 
+  private readonly promptBuilder?: PromptBuilder<ClassifyTagsPromptContext>;
   private existTags: string[] = [];
 
-  constructor(config: LLMQueryConfig<TaskId>) {
+  constructor(config: Config<TaskId>) {
     super(config);
+    this.promptBuilder = config.promptBuilder;
   }
 
   public async execute({ existTags }: Params) {
@@ -42,7 +52,20 @@ export default class ClassifyTags<TaskId> extends LLMQuery<
     return { result: output, usage };
   }
 
+  private get promptContext(): ClassifyTagsPromptContext {
+    return {
+      expertFields: this.expertFields,
+      outputLanguage: this.options.content.outputLanguage,
+      targetArticle: this.targetArticle,
+      existTags: this.existTags,
+    };
+  }
+
   private get systemPrompt(): string {
+    if (this.promptBuilder?.system) {
+      return this.promptBuilder.system(this.promptContext);
+    }
+
     return `You are an AI specializing in analyzing and categorizing articles for professionals in ${this.expertFields.join(', ')}.
 
 ## Core Responsibility
@@ -56,7 +79,7 @@ All classifications must be written in ${this.options.content.outputLanguage}.
 2. **New Tag Criteria**: Create new classifications only when:
    - Best existing match scores below 80% compatibility
    - New tag demonstrates versatility across 10+ similar articles
-3. **Naming Standards**: 
+3. **Naming Standards**:
    - Length: 3-15 characters
    - Style: Clear, intuitive ${this.options.content.outputLanguage} terms
    - Balance industry precision with general reader comprehension
@@ -71,6 +94,10 @@ Prioritize in order:
   }
 
   private get userPrompt(): string {
+    if (this.promptBuilder?.user) {
+      return this.promptBuilder.user(this.promptContext);
+    }
+
     return `**Task**: Classify this article with 3 optimal detailed tags.
 
 **Article Information**

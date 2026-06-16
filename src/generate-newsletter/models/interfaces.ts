@@ -17,6 +17,7 @@ import type { UrlString } from '~/models/common';
 import type { EmailMessage } from '~/models/email';
 import type { AppLogger, DateService, EmailService } from '~/models/interfaces';
 import type { Newsletter } from '~/models/newsletter';
+import type { PromptProvider } from './prompt-provider';
 
 /**
  * Task module managed by the client for newsletter generation.
@@ -353,4 +354,10 @@ export type GenerateNewsletterConfig<TaskId> = {
    * Optional behavior/settings.
    */
   options?: GenerateNewsletterOptions;
+
+  /**
+   * Optional provider for customizing LLM prompts.
+   * When omitted, built-in default prompts are used.
+   */
+  promptProvider?: PromptProvider;
 };

@@ -513,6 +513,71 @@ describe('GenerateNewsletter.execute', () => {
     );
   });
 
+  test('uses custom promptBuilder when provided', async () => {
+    const customSystem = vi.fn().mockReturnValue('custom system prompt');
+    const customUser = vi.fn().mockReturnValue('custom user prompt');
+
+    mockObjectOnce({
+      title: longTitle,
+      content: 'Generated content',
+      isWrittenInOutputLanguage: true,
+      copyrightVerified: true,
+      factAccuracy: true,
+    });
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({
+        promptBuilder: { system: customSystem, user: customUser },
+      }),
+    );
+
+    await instance.execute();
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+    expect(callArg.system).toBe('custom system prompt');
+    expect(callArg.prompt).toBe('custom user prompt');
+
+    expect(customSystem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expertFields: ['AI', 'Robotics'],
+        outputLanguage: 'English',
+        newsletterBrandName: 'TechPulse',
+        subscribePageUrl: 'https://example.com/subscribe',
+      }),
+    );
+    expect(customUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expertFields: ['AI', 'Robotics'],
+        targetArticles: expect.any(Array),
+      }),
+    );
+    expect(customSystem.mock.calls[0][0].dateService).toBeDefined();
+  });
+
+  test('uses default user prompt when only system promptBuilder is provided', async () => {
+    const customSystem = vi.fn().mockReturnValue('custom system only');
+
+    mockObjectOnce({
+      title: longTitle,
+      content: 'Content',
+      isWrittenInOutputLanguage: true,
+      copyrightVerified: true,
+      factAccuracy: true,
+    });
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({
+        promptBuilder: { system: customSystem },
+      }),
+    );
+
+    await instance.execute();
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+    expect(callArg.system).toBe('custom system only');
+    expect(callArg.prompt).toContain('Below is the complete list');
+  });
+
   test('uses provided sampling/penalty options and omits subscribe link when not given', async () => {
     mockObjectOnce({
       title: longTitle,

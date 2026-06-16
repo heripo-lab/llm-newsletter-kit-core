@@ -10,6 +10,7 @@ import { RunnablePassthrough } from '@langchain/core/runnables';
 import { pick } from 'es-toolkit';
 
 import type { AnalysisProvider } from '~/generate-newsletter/models/interfaces';
+import type { PromptProvider } from '~/generate-newsletter/models/prompt-provider';
 import { LoggingExecutor } from '~/logging/logging-executor';
 import type { DateService } from '~/models/interfaces';
 
@@ -34,6 +35,7 @@ export type ArticleInsights = {
 
 type Config<TaskId> = ChainConfig<TaskId, ArticleInsights> & {
   dateService: DateService;
+  promptProvider?: PromptProvider['analysis'];
 };
 
 export default class ArticleInsightsChain<TaskId> extends PrivateChain<
@@ -41,11 +43,13 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
   ArticleInsights
 > {
   private readonly dateService: DateService;
+  private readonly promptProvider?: PromptProvider['analysis'];
 
   constructor(config: Config<TaskId>) {
     super(config);
 
     this.dateService = config.dateService;
+    this.promptProvider = config.promptProvider;
   }
 
   /* istanbul ignore next - pipeline arrow functions are exercised via higher-level tests */
@@ -177,12 +181,13 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
           });
 
           try {
-            const classifyTags = new ClassifyTags(
-              this.getLlmQueryConfig(
+            const classifyTags = new ClassifyTags({
+              ...this.getLlmQueryConfig(
                 this.provider.classifyTagOptions.model,
                 article,
               ),
-            );
+              promptBuilder: this.promptProvider?.classifyTags,
+            });
 
             const { result: generatedTags } = await classifyTags.execute({
               existTags,
@@ -272,12 +277,13 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
           });
 
           try {
-            const analyzeImages = new AnalyzeImages(
-              this.getLlmQueryConfig(
+            const analyzeImages = new AnalyzeImages({
+              ...this.getLlmQueryConfig(
                 this.provider.analyzeImagesOptions.model,
                 article,
               ),
-            );
+              promptBuilder: this.promptProvider?.analyzeImages,
+            });
 
             const { result: imageContextByLlm } = await analyzeImages.execute();
 
@@ -405,6 +411,7 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
               minimumImportanceScoreRules:
                 this.provider.determineScoreOptions.minimumImportanceScoreRules,
               dateService: this.dateService,
+              promptBuilder: this.promptProvider?.determineImportance,
             });
 
             const { result: importanceScore } =

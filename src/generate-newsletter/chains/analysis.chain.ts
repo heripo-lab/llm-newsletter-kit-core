@@ -7,6 +7,7 @@ import type { AnalysisProvider } from '../models/interfaces';
 import { RunnablePassthrough } from '@langchain/core/runnables';
 
 import { LoggingExecutor } from '~/logging/logging-executor';
+import type { PromptProvider } from '~/generate-newsletter/models/prompt-provider';
 import type { DateService } from '~/models/interfaces';
 
 import ArticleInsightsChain from './article-insights.chain';
@@ -14,6 +15,7 @@ import { Chain, type ChainConfig } from './chain';
 
 type Config<TaskId> = ChainConfig<TaskId, AnalysisProvider> & {
   dateService: DateService;
+  promptProvider?: PromptProvider['analysis'];
 };
 
 export default class AnalysisChain<TaskId> extends Chain<
@@ -21,11 +23,13 @@ export default class AnalysisChain<TaskId> extends Chain<
   AnalysisProvider
 > {
   private readonly dateService: DateService;
+  private readonly promptProvider?: PromptProvider['analysis'];
 
   constructor(config: Config<TaskId>) {
     super(config);
 
     this.dateService = config.dateService;
+    this.promptProvider = config.promptProvider;
   }
 
   public get chain() {
@@ -105,6 +109,7 @@ export default class AnalysisChain<TaskId> extends Chain<
             this.taskId as TaskId,
           ),
           dateService: this.dateService,
+          promptProvider: this.promptProvider,
         });
 
         return await articleInsightsChain.generateInsights();
