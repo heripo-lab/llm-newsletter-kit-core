@@ -149,6 +149,88 @@ const newsletterId = await generator.generate();
 
 👉 **See the reference implementation: https://github.com/heripo-lab/heripo-research-radar**
 
+## Customizing LLM Prompts (PromptProvider)
+
+The kit ships with built-in prompts designed to cover a wide range of domains. However, these general-purpose prompts may not be flexible enough for specialized requirements. For example:
+
+- Your domain uses unique terminology or jargon that the default prompts don't account for
+- You need a specific newsletter tone or structure (e.g., academic style, casual briefing)
+- Tag classification requires domain-specific taxonomy rules
+- Importance scoring needs custom criteria tailored to your industry
+
+`PromptProvider` lets you **replace** any built-in prompt — system prompt, user prompt, or both — on a per-stage basis while keeping the rest of the pipeline intact.
+
+### How It Works
+
+PromptProvider is organized by pipeline stage. Every field is optional — omitted prompts fall back to the built-in defaults.
+
+```
+PromptProvider
+├── analysis
+│   ├── classifyTags        — Tag classification (system / user)
+│   ├── analyzeImages       — Image analysis (system / user)
+│   └── determineImportance — Importance scoring (system / user)
+└── contentGenerate
+    └── generateNewsletter  — Final newsletter generation (system / user)
+```
+
+Each prompt slot is a `PromptBuilder<TContext>` — an object with optional `system` and `user` functions. The function receives a typed context object containing all the data the default prompt would use (articles, tags, expert fields, dates, etc.), so you have full control over prompt construction.
+
+> **Dependency note:** Analysis prompts (classifyTags → analyzeImages → determineImportance) produce data that flows into the content generation prompt. Changing an analysis prompt may indirectly affect the final newsletter output.
+
+### Example
+
+```ts
+import type {
+  GenerateNewsletterConfig,
+  PromptProvider,
+} from '@llm-newsletter-kit/core';
+
+const promptProvider: PromptProvider = {
+  analysis: {
+    // Override only the system prompt for tag classification
+    classifyTags: {
+      system: (ctx) =>
+        `You are a legal-domain specialist. Classify articles using ` +
+        `legal taxonomy standards. Available tags: ${ctx.existTags.join(', ')}. ` +
+        `Output language: ${ctx.outputLanguage}.`,
+      // user prompt falls back to the built-in default
+    },
+    // Override importance scoring with domain-specific criteria
+    determineImportance: {
+      system: (ctx) =>
+        `Score article importance for ${ctx.expertFields.join(', ')} professionals. ` +
+        `Regulatory changes and court rulings score 8+. ` +
+        `Commentary and opinion pieces score 3-5.`,
+      user: (ctx) =>
+        `Article: ${ctx.targetArticle.title}\n` +
+        `Content: ${ctx.targetArticle.detailContent}\n` +
+        `Score this article 1-10.`,
+    },
+  },
+  contentGenerate: {
+    // Override the newsletter generation prompt entirely
+    generateNewsletter: {
+      system: (ctx) =>
+        `You produce a weekly legal digest for "${ctx.newsletterBrandName}". ` +
+        `Write in ${ctx.outputLanguage}. Use formal academic tone.`,
+      user: (ctx) =>
+        `Publication date: ${ctx.dateService.getPublicationDisplayDateString()}\n\n` +
+        ctx.targetArticles
+          .map((a) => `- [${a.title}](${a.url}) (score: ${a.importanceScore})`)
+          .join('\n'),
+    },
+  },
+};
+
+const config: GenerateNewsletterConfig<string> = {
+  // ... other config (contentOptions, dateService, taskService, providers, etc.)
+  promptProvider, // Inject custom prompts
+};
+```
+
+For full context types (`ClassifyTagsPromptContext`, `GenerateNewsletterPromptContext`, etc.), see `src/generate-newsletter/models/prompt-provider.ts`.
+
 ## Public API Overview
 
 Entry point: `src/index.ts`
@@ -163,6 +245,7 @@ Entry point: `src/index.ts`
   - AnalysisProvider { classifyTagOptions.model, analyzeImagesOptions.model, determineScoreOptions(model, minimumImportanceScoreRules), fetchUnscoredArticles, fetchTags, update }
   - ContentGenerateProvider { model and generation options, issueOrder, publicationCriteria, subscribePageUrl, newsletterBrandName, fetchArticleCandidates, htmlTemplate, saveNewsletter }
   - GenerateNewsletterOptions { logger, llm, chain, previewNewsletter(emailService/emailMessage/fetchNewsletterForPreview) }
+  - PromptProvider { analysis?(classifyTags, analyzeImages, determineImportance), contentGenerate?(generateNewsletter) }
   - Domain models: DateService, EmailService, Newsletter, etc.
 
 For detailed field descriptions, see `src/generate-newsletter/models/interfaces.ts` and type definitions under `src/models/*`.

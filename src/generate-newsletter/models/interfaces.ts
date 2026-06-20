@@ -11,6 +11,7 @@ import type {
   ParsedTarget,
 } from './crawling';
 import type { ChainOptions, ContentOptions, LLMQueryOptions } from './options';
+import type { PromptProvider } from './prompt-provider';
 import type { HtmlTemplate } from './template';
 
 import type { UrlString } from '~/models/common';
@@ -353,4 +354,10 @@ export type GenerateNewsletterConfig<TaskId> = {
    * Optional behavior/settings.
    */
   options?: GenerateNewsletterOptions;
+
+  /**
+   * Optional provider for customizing LLM prompts.
+   * When omitted, built-in default prompts are used.
+   */
+  promptProvider?: PromptProvider;
 };

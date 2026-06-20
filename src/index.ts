@@ -1,5 +1,6 @@
 export type * from './generate-newsletter/models/article';
 export type * from './generate-newsletter/models/interfaces';
+export type * from './generate-newsletter/models/prompt-provider';
 export type * from './models/newsletter';
 export type * from './generate-newsletter/models/crawling';
 export type * from './generate-newsletter/models/template';

@@ -12,6 +12,7 @@ import type {
   TaskService,
 } from '~/generate-newsletter/models/interfaces';
 import type { CommonProcessingOptions } from '~/generate-newsletter/models/options';
+import type { PromptProvider } from '~/generate-newsletter/models/prompt-provider';
 import { LoggingExecutor } from '~/logging/logging-executor';
 import type { AppLogger, DateService } from '~/models/interfaces';
 
@@ -28,6 +29,7 @@ export default class GenerateNewsletter<TaskId> {
   private readonly contentGenerateProvider: ContentGenerateProvider;
   private readonly logger: AppLogger;
   private readonly options: CommonProcessingOptions;
+  private readonly promptProvider?: PromptProvider;
   private readonly previewNewsletterOptions?: GenerateNewsletterOptions['previewNewsletter'];
 
   /** Independent internal field **/
@@ -75,6 +77,8 @@ export default class GenerateNewsletter<TaskId> {
       },
     };
 
+    this.promptProvider = config.promptProvider;
+
     // Default logger (no-op)
     this.logger = config.options?.logger ?? {
       info: (_msg) => {},
@@ -111,6 +115,7 @@ export default class GenerateNewsletter<TaskId> {
         options: this.options,
         loggingExecutor,
         dateService: this.dateService,
+        promptProvider: this.promptProvider?.analysis,
       });
 
       const contentGenerateChain = new ContentGenerateChain({
@@ -120,6 +125,7 @@ export default class GenerateNewsletter<TaskId> {
         options: this.options,
         loggingExecutor,
         dateService: this.dateService,
+        promptProvider: this.promptProvider?.contentGenerate,
       });
 
       const taskChain = RunnableSequence.from([

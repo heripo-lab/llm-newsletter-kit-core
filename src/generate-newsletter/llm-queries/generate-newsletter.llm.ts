@@ -1,6 +1,10 @@
 import type { LanguageModelUsage } from 'ai';
 
 import type { ArticleForGenerateContent } from '../models/article';
+import type {
+  GenerateNewsletterPromptContext,
+  PromptBuilder,
+} from '../models/prompt-provider';
 
 import { pick } from 'es-toolkit';
 import { z } from 'zod';
@@ -27,6 +31,7 @@ type Config<TaskId> = BaseLLMQueryConfig<TaskId> & {
   dateService: DateService;
   subscribePageUrl?: UrlString;
   newsletterBrandName: string;
+  promptBuilder?: PromptBuilder<GenerateNewsletterPromptContext>;
 };
 
 type ReturnType = Pick<Newsletter, 'title' | 'content'>;
@@ -46,6 +51,7 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
   private readonly dateService: DateService;
   private readonly subscribePageUrl?: UrlString;
   private readonly newsletterBrandName: string;
+  private readonly promptBuilder?: PromptBuilder<GenerateNewsletterPromptContext>;
 
   private readonly schema = z.object({
     title: z.string().max(70).min(20).describe('Title of the newsletter email'),
@@ -80,6 +86,7 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
     this.dateService = config.dateService;
     this.subscribePageUrl = config.subscribePageUrl;
     this.newsletterBrandName = config.newsletterBrandName;
+    this.promptBuilder = config.promptBuilder;
   }
 
   public async execute(): Promise<LLMQueryExecuteResult<ReturnType>> {
@@ -123,7 +130,24 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
     return { result: pick(output, ['title', 'content']), usage };
   }
 
+  private get promptContext(): GenerateNewsletterPromptContext {
+    return {
+      expertFields: this.expertFields,
+      outputLanguage: this.options.content.outputLanguage,
+      dateService: this.dateService,
+      targetArticles: this.targetArticles,
+      freeFormIntro: this.options.content.freeFormIntro,
+      titleContext: this.options.content.titleContext,
+      subscribePageUrl: this.subscribePageUrl,
+      newsletterBrandName: this.newsletterBrandName,
+    };
+  }
+
   private get systemPrompt(): string {
+    if (this.promptBuilder?.system) {
+      return this.promptBuilder.system(this.promptContext);
+    }
+
     return `You are a newsletter production expert for "${this.newsletterBrandName}" who analyzes and delivers trends in the fields of ${this.expertFields.join(', ')}. Your goal is to provide in-depth analysis that helps industry professionals easily understand complex information and make informed decisions.
 
 Important rule for displaying date ranges: When displaying date ranges, you must use a hyphen (-) instead of a tilde (~). For example, use 'June 1-2, 2025' instead of 'June 1~2, 2025'. The tilde (~) can be rendered as strikethrough in markdown.
@@ -258,6 +282,10 @@ Output Format & Requirements:
   }
 
   private get userPrompt(): string {
+    if (this.promptBuilder?.user) {
+      return this.promptBuilder.user(this.promptContext);
+    }
+
     return `Below is the complete list of newly collected ${this.expertFields.join(', ')} related news:
 
 ${this.targetArticles

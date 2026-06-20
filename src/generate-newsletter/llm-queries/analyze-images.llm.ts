@@ -1,4 +1,8 @@
 import type { UnscoredArticle } from '../models/article';
+import type {
+  AnalyzeImagesPromptContext,
+  PromptBuilder,
+} from '../models/prompt-provider';
 
 import { z } from 'zod';
 
@@ -8,6 +12,10 @@ import {
   type LLMQueryConfig,
   type LLMQueryExecuteResult,
 } from './llm-query';
+
+type Config<TaskId> = LLMQueryConfig<TaskId> & {
+  promptBuilder?: PromptBuilder<AnalyzeImagesPromptContext>;
+};
 
 type ReturnType = string | null;
 
@@ -37,8 +45,11 @@ export default class AnalyzeImages<TaskId> extends LLMQuery<
       ),
   });
 
-  constructor(config: LLMQueryConfig<TaskId>) {
+  private readonly promptBuilder?: PromptBuilder<AnalyzeImagesPromptContext>;
+
+  constructor(config: Config<TaskId>) {
     super(config);
+    this.promptBuilder = config.promptBuilder;
   }
 
   public async execute(): Promise<LLMQueryExecuteResult<ReturnType>> {
@@ -69,7 +80,19 @@ export default class AnalyzeImages<TaskId> extends LLMQuery<
     return { result: output.imageContext, usage };
   }
 
+  private get promptContext(): AnalyzeImagesPromptContext {
+    return {
+      expertFields: this.expertFields,
+      outputLanguage: this.options.content.outputLanguage,
+      targetArticle: this.targetArticle,
+    };
+  }
+
   private get systemPrompt(): string {
+    if (this.promptBuilder?.system) {
+      return this.promptBuilder.system(this.promptContext);
+    }
+
     return `# Image Analysis Expert System
 
 ## Identity & Expertise
@@ -149,6 +172,13 @@ You are a specialized image analysis expert in: ${this.expertFields.join(', ')}
   }
 
   private get textMessage() {
+    if (this.promptBuilder?.user) {
+      return {
+        type: 'text' as const,
+        text: this.promptBuilder.user(this.promptContext),
+      };
+    }
+
     return {
       type: 'text' as const,
       text: `## Analysis Task

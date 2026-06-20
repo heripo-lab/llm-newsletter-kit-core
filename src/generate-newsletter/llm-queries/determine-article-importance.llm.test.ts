@@ -247,6 +247,72 @@ describe('DetermineArticleImportance', () => {
   });
 });
 
+describe('DetermineArticleImportance - promptBuilder', () => {
+  const date = '2024-01-02T10:00:00.000Z';
+
+  test('uses custom promptBuilder when provided', async () => {
+    const model: any = { name: 'fake-model' };
+    const logger: any = {
+      info: vi.fn(),
+      error: vi.fn(),
+      warn: vi.fn(),
+      debug: vi.fn(),
+    };
+    const loggingExecutor: any = {
+      executeWithLogging: vi.fn(async (_taskId: any, fn: any) => fn()),
+    };
+    const options: any = {
+      content: { outputLanguage: 'Korean', expertField: 'AI' },
+      llm: { maxRetries: 2 },
+    };
+    const targetArticle: any = {
+      targetUrl: 'https://example.com/a',
+      title: 'Test',
+      detailContent: 'Content',
+      tag1: 'T1',
+      tag2: 'T2',
+      tag3: 'T3',
+    };
+
+    const customSystem = vi.fn().mockReturnValue('custom system');
+    const customUser = vi.fn().mockReturnValue('custom user');
+
+    const query = new DetermineArticleImportance({
+      model,
+      logger,
+      taskId: 'task-prompt',
+      targetArticle,
+      options,
+      loggingExecutor,
+      dateService: {
+        getPublicationISODateString: () => date,
+        getPublicationDisplayDateString: () => date,
+      },
+      promptBuilder: { system: customSystem, user: customUser },
+    });
+
+    vi.mocked(generateText).mockResolvedValue({
+      output: { importanceScore: 5 },
+      usage: {},
+    } as any);
+
+    await query.execute();
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+    expect(callArg.system).toBe('custom system');
+    expect(callArg.prompt).toBe('custom user');
+
+    expect(customSystem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expertFields: ['AI'],
+        targetArticle,
+        minimumImportanceScoreRules: [],
+      }),
+    );
+    expect(customSystem.mock.calls[0][0].dateService).toBeDefined();
+  });
+});
+
 describe('DetermineArticleImportance - fallbacks', () => {
   test('uses fallback values when title/content/tags are missing', async () => {
     const model: any = { name: 'fake-model-3' };

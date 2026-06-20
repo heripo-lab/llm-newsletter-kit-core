@@ -72,4 +72,112 @@ describe('ClassifyTags', () => {
     expect(callArg.prompt).toContain('**Article Information**');
     expect(callArg.prompt).toContain(JSON.stringify(existTags, null, 2));
   });
+
+  test('uses custom promptBuilder when provided', async () => {
+    const model: any = { name: 'fake-model' };
+    const logger: any = {
+      info: vi.fn(),
+      error: vi.fn(),
+      warn: vi.fn(),
+      debug: vi.fn(),
+    };
+    const loggingExecutor: any = {
+      executeWithLogging: vi.fn(async (_taskId: any, fn: any) => fn()),
+    };
+    const options: any = {
+      content: { outputLanguage: 'Korean', expertField: 'AI' },
+      llm: { maxRetries: 3 },
+    };
+    const targetArticle: any = {
+      title: 'Test Article',
+      detailContent: 'Test content',
+    };
+
+    const customSystem = vi.fn().mockReturnValue('custom system prompt');
+    const customUser = vi.fn().mockReturnValue('custom user prompt');
+
+    const query = new ClassifyTags({
+      model,
+      logger,
+      taskId: 'task-1',
+      targetArticle,
+      options,
+      loggingExecutor,
+      promptBuilder: { system: customSystem, user: customUser },
+    });
+
+    const stubUsage = { inputTokens: 5, outputTokens: 10, totalTokens: 15 };
+    vi.mocked(generateText).mockResolvedValue({
+      output: { tag1: 'a', tag2: 'b', tag3: 'c' },
+      usage: stubUsage,
+    } as any);
+
+    await query.execute({ existTags: ['existing'] });
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+    expect(callArg.system).toBe('custom system prompt');
+    expect(callArg.prompt).toBe('custom user prompt');
+
+    expect(customSystem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expertFields: ['AI'],
+        outputLanguage: 'Korean',
+        targetArticle,
+        existTags: ['existing'],
+      }),
+    );
+    expect(customUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expertFields: ['AI'],
+        outputLanguage: 'Korean',
+        targetArticle,
+        existTags: ['existing'],
+      }),
+    );
+  });
+
+  test('uses default prompt when only system promptBuilder is provided', async () => {
+    const model: any = { name: 'fake-model' };
+    const logger: any = {
+      info: vi.fn(),
+      error: vi.fn(),
+      warn: vi.fn(),
+      debug: vi.fn(),
+    };
+    const loggingExecutor: any = {
+      executeWithLogging: vi.fn(async (_taskId: any, fn: any) => fn()),
+    };
+    const options: any = {
+      content: { outputLanguage: 'Korean', expertField: 'AI' },
+      llm: { maxRetries: 3 },
+    };
+    const targetArticle: any = {
+      title: 'Test',
+      detailContent: 'Content',
+    };
+
+    const customSystem = vi.fn().mockReturnValue('custom system only');
+
+    const query = new ClassifyTags({
+      model,
+      logger,
+      taskId: 'task-1',
+      targetArticle,
+      options,
+      loggingExecutor,
+      promptBuilder: { system: customSystem },
+    });
+
+    const stubUsage = { inputTokens: 5, outputTokens: 10, totalTokens: 15 };
+    vi.mocked(generateText).mockResolvedValue({
+      output: { tag1: 'a', tag2: 'b', tag3: 'c' },
+      usage: stubUsage,
+    } as any);
+
+    await query.execute({ existTags: [] });
+
+    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
+    expect(callArg.system).toBe('custom system only');
+    expect(callArg.prompt).toContain('**Task**');
+  });
 });
