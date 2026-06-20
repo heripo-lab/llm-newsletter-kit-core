@@ -11,13 +11,13 @@ import type {
   ParsedTarget,
 } from './crawling';
 import type { ChainOptions, ContentOptions, LLMQueryOptions } from './options';
+import type { PromptProvider } from './prompt-provider';
 import type { HtmlTemplate } from './template';
 
 import type { UrlString } from '~/models/common';
 import type { EmailMessage } from '~/models/email';
 import type { AppLogger, DateService, EmailService } from '~/models/interfaces';
 import type { Newsletter } from '~/models/newsletter';
-import type { PromptProvider } from './prompt-provider';
 
 /**
  * Task module managed by the client for newsletter generation.

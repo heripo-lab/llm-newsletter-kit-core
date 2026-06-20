@@ -6,8 +6,8 @@ import type { AnalysisProvider } from '../models/interfaces';
 
 import { RunnablePassthrough } from '@langchain/core/runnables';
 
-import { LoggingExecutor } from '~/logging/logging-executor';
 import type { PromptProvider } from '~/generate-newsletter/models/prompt-provider';
+import { LoggingExecutor } from '~/logging/logging-executor';
 import type { DateService } from '~/models/interfaces';
 
 import ArticleInsightsChain from './article-insights.chain';
