@@ -21,7 +21,7 @@ A type‑first, extensible toolkit that automates LLM‑based newsletter creatio
 - Type-first design (TypeScript, ESM) with strong contracts
 - Flexible dependency injection: easily swap Crawling/Analysis/ContentGenerate/Task/Logging/Email
 - Operational features built-in: retries, chain options, preview email sending, etc.
-- Rollup build (ESM+CJS+d.ts), Vitest 100% coverage, GitHub Actions CI included
+- Rollup build (ESM+d.ts), Vitest 100% coverage, GitHub Actions CI included
 
 ## Project Background
 

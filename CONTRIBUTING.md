@@ -19,7 +19,7 @@ npm test
 
 ### Useful Scripts
 
-- Build: `npm run build` (Rollup, generates CJS/ESM/d.ts in dist)
+- Build: `npm run build` (Rollup, generates ESM/d.ts in dist)
 - Test: `npm run test` / `npm run test:watch` / `npm run test:coverage`
 - Coverage (CI mode): `npm run test:ci`
 - Lint: `npm run lint` / auto fix `npm run lint:fix`
@@ -163,7 +163,7 @@ git push origin main
 
 - Version/Publish: `npm version {patch|minor|major}` → `npm publish --access public`
   - Scripts: `release:*` (auto build via `prepublishOnly`/`preversion`), `postversion` pushes tags
-- Distribution artifacts: `dist` directory (exports: ESM/CJS/types)
+- Distribution artifacts: `dist` directory (exports: ESM/types)
 
 ## CI
 
