@@ -75,16 +75,18 @@ describe('DetermineArticleImportance', () => {
     ).toThrow();
 
     // system prompt should include expert field and reflect minPoint=1 branch
-    expect(callArg.system).toContain('AI');
-    expect(callArg.system).toContain('Importance Score Criteria (1-10)');
-    expect(callArg.system).toContain(
+    expect(callArg.instructions).toContain('AI');
+    expect(callArg.instructions).toContain('Importance Score Criteria (1-10)');
+    expect(callArg.instructions).toContain(
       '1: **Information without current practical value**',
     );
-    expect(callArg.system).toContain(
+    expect(callArg.instructions).toContain(
       '(However, recent academic achievements maintain high scores)',
     );
-    expect(callArg.system).toContain('as of the Newsletter Publication Date');
-    expect(callArg.system).toContain('HARD RULE — Temporal Expiration');
+    expect(callArg.instructions).toContain(
+      'as of the Newsletter Publication Date',
+    );
+    expect(callArg.instructions).toContain('HARD RULE — Temporal Expiration');
 
     // user prompt should include date, title, content, tags; exclude Image Analysis
     expect(callArg.prompt).toContain(
@@ -166,15 +168,17 @@ describe('DetermineArticleImportance', () => {
     expect(callArg.maxRetries).toBe(5);
 
     // system prompt should reflect minPoint=5 branch and exclude 1-point guidance and the parenthetical
-    expect(callArg.system).toContain('Robotics');
-    expect(callArg.system).toContain('Importance Score Criteria (5-10)');
-    expect(callArg.system).not.toContain(
+    expect(callArg.instructions).toContain('Robotics');
+    expect(callArg.instructions).toContain('Importance Score Criteria (5-10)');
+    expect(callArg.instructions).not.toContain(
       '1: **Information without current practical value**',
     );
-    expect(callArg.system).not.toContain(
+    expect(callArg.instructions).not.toContain(
       '(However, recent academic achievements maintain high scores)',
     );
-    expect(callArg.system).not.toContain('HARD RULE — Temporal Expiration');
+    expect(callArg.instructions).not.toContain(
+      'HARD RULE — Temporal Expiration',
+    );
 
     // user prompt should include image analysis and correct min point
     expect(callArg.prompt).toContain(
@@ -299,7 +303,7 @@ describe('DetermineArticleImportance - promptBuilder', () => {
     await query.execute();
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
-    expect(callArg.system).toBe('custom system');
+    expect(callArg.instructions).toBe('custom system');
     expect(callArg.prompt).toBe('custom user');
 
     expect(customSystem).toHaveBeenCalledWith(

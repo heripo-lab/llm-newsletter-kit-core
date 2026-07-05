@@ -62,8 +62,8 @@ describe('ClassifyTags', () => {
     ).toThrow();
 
     // system prompt should include expert field and output language
-    expect(callArg.system).toContain('AI');
-    expect(callArg.system).toContain('Korean');
+    expect(callArg.instructions).toContain('AI');
+    expect(callArg.instructions).toContain('Korean');
 
     // user prompt should include task, article information, and JSON of existing tags
     expect(callArg.prompt).toContain(
@@ -115,7 +115,7 @@ describe('ClassifyTags', () => {
     await query.execute({ existTags: ['existing'] });
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
-    expect(callArg.system).toBe('custom system prompt');
+    expect(callArg.instructions).toBe('custom system prompt');
     expect(callArg.prompt).toBe('custom user prompt');
 
     expect(customSystem).toHaveBeenCalledWith(
@@ -177,7 +177,7 @@ describe('ClassifyTags', () => {
     await query.execute({ existTags: [] });
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
-    expect(callArg.system).toBe('custom system only');
+    expect(callArg.instructions).toBe('custom system only');
     expect(callArg.prompt).toContain('**Task**');
   });
 });

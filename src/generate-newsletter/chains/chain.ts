@@ -48,7 +48,5 @@ export abstract class PrivateChain<TaskId, Provider> extends BaseChain<
   Provider
 > {
   protected abstract get chain():
-    | RunnableAssign
-    | RunnableRetry
-    | RunnablePassthrough;
+    RunnableAssign | RunnableRetry | RunnablePassthrough;
 }

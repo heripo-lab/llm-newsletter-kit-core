@@ -21,7 +21,7 @@ A type‑first, extensible toolkit that automates LLM‑based newsletter creatio
 - Type-first design (TypeScript, ESM) with strong contracts
 - Flexible dependency injection: easily swap Crawling/Analysis/ContentGenerate/Task/Logging/Email
 - Operational features built-in: retries, chain options, preview email sending, etc.
-- Rollup build (ESM+CJS+d.ts), Vitest 100% coverage, GitHub Actions CI included
+- Rollup build (ESM+d.ts), Vitest 100% coverage, GitHub Actions CI included
 
 ## Project Background
 
@@ -101,12 +101,8 @@ const config: GenerateNewsletterConfig<string> = {
   },
   crawlingProvider: {
     // customFetch: myProxyFetch,  // Optional: custom fetch for proxy support
-    crawlingTargetGroups: [
-      /* ... */
-    ],
-    fetchExistingArticlesByUrls: async (urls) => [
-      /* ... */
-    ],
+    crawlingTargetGroups: [/* ... */],
+    fetchExistingArticlesByUrls: async (urls) => [/* ... */],
     saveCrawledArticles: async (articles, context) => articles.length,
   },
   analysisProvider: {
@@ -114,12 +110,8 @@ const config: GenerateNewsletterConfig<string> = {
     classifyTagOptions: { model: openai('gpt-5-mini') },
     analyzeImagesOptions: { model: openai('gpt-5.1') },
     determineScoreOptions: { model: openai('gpt-5.1') },
-    fetchUnscoredArticles: async () => [
-      /* ... */
-    ],
-    fetchTags: async () => [
-      /* ... */
-    ],
+    fetchUnscoredArticles: async () => [/* ... */],
+    fetchTags: async () => [/* ... */],
     update: async (article) => {},
   },
   contentGenerateProvider: {
@@ -128,9 +120,7 @@ const config: GenerateNewsletterConfig<string> = {
     issueOrder: 1,
     newsletterBrandName: 'Tech Insight Weekly',
     publicationCriteria: { minimumArticleCountForIssue: 5 },
-    fetchArticleCandidates: async () => [
-      /* ... */
-    ],
+    fetchArticleCandidates: async () => [/* ... */],
     htmlTemplate: ({ content }) => `<html>...</html>`,
     saveNewsletter: async ({ newsletter }) => ({ id: 1 }),
   },

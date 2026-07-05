@@ -68,7 +68,7 @@ export default class AnalyzeImages<TaskId> extends LLMQuery<
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
       schema: this.schema,
-      system: this.systemPrompt,
+      instructions: this.systemPrompt,
       messages: [
         {
           role: 'user',
@@ -166,8 +166,9 @@ You are a specialized image analysis expert in: ${this.expertFields.join(', ')}
 
   private get imageMessages() {
     return this.imageUrls.map((url) => ({
-      type: 'image' as const,
-      image: url,
+      type: 'file' as const,
+      mediaType: 'image',
+      data: url,
     }));
   }
 
