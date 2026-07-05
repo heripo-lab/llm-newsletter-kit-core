@@ -405,7 +405,9 @@ describe('GenerateNewsletter.execute', () => {
     expect(callArg.instructions).toContain(
       '**Required title keyword**: "Weekly AI Research Digest"',
     );
-    expect(callArg.instructions).toContain('This phrase MUST appear in the title');
+    expect(callArg.instructions).toContain(
+      'This phrase MUST appear in the title',
+    );
     expect(callArg.instructions).toContain(
       "Combine it with key context from today's newsletter content",
     );

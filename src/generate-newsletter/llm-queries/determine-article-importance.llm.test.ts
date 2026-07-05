@@ -83,7 +83,9 @@ describe('DetermineArticleImportance', () => {
     expect(callArg.instructions).toContain(
       '(However, recent academic achievements maintain high scores)',
     );
-    expect(callArg.instructions).toContain('as of the Newsletter Publication Date');
+    expect(callArg.instructions).toContain(
+      'as of the Newsletter Publication Date',
+    );
     expect(callArg.instructions).toContain('HARD RULE — Temporal Expiration');
 
     // user prompt should include date, title, content, tags; exclude Image Analysis
@@ -174,7 +176,9 @@ describe('DetermineArticleImportance', () => {
     expect(callArg.instructions).not.toContain(
       '(However, recent academic achievements maintain high scores)',
     );
-    expect(callArg.instructions).not.toContain('HARD RULE — Temporal Expiration');
+    expect(callArg.instructions).not.toContain(
+      'HARD RULE — Temporal Expiration',
+    );
 
     // user prompt should include image analysis and correct min point
     expect(callArg.prompt).toContain(
