@@ -20,19 +20,11 @@ const jsConfig = {
   input: 'src/index.ts',
   external,
   treeshake: true,
-  output: [
-    {
-      file: 'dist/index.cjs',
-      format: 'cjs',
-      sourcemap: true,
-      exports: 'named',
-    },
-    {
-      file: 'dist/index.js',
-      format: 'esm',
-      sourcemap: true,
-    },
-  ],
+  output: {
+    file: 'dist/index.js',
+    format: 'esm',
+    sourcemap: true,
+  },
   plugins: [
     typescript({
       clean: true,

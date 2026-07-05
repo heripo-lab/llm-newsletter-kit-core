@@ -4,14 +4,13 @@
   "type": "module",
   "version": "2.1.0",
   "description": "An extensible framework to automate your entire newsletter workflow. Handles data collection, LLM-based content analysis, and email generation, letting you focus on your unique domain logic.",
-  "main": "dist/index.cjs",
+  "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
       "default": "./dist/index.js"
     }
   },
