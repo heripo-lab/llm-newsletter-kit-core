@@ -129,8 +129,8 @@ describe('AnalyzeImages', () => {
     expect(() => callArg.output.schema.parse({})).toThrow();
 
     // system prompt should include expert field and output language
-    expect(callArg.system).toContain('AI');
-    expect(callArg.system).toContain('Korean');
+    expect(callArg.instructions).toContain('AI');
+    expect(callArg.instructions).toContain('Korean');
 
     // messages: one user message with text + first 5 images only
     expect(callArg.messages).toHaveLength(1);
@@ -146,7 +146,9 @@ describe('AnalyzeImages', () => {
     expect(textPart.text).toContain('AI');
 
     // Only first five image urls are included, in order
-    const urls = imageParts.map((p: any) => p.image);
+    expect(imageParts.every((p: any) => p.type === 'file')).toBe(true);
+    expect(imageParts.every((p: any) => p.mediaType === 'image')).toBe(true);
+    const urls = imageParts.map((p: any) => p.data);
     expect(urls).toEqual([
       'http://a.com/img.png',
       'https://b.com/i.jpg',
@@ -179,7 +181,7 @@ describe('AnalyzeImages', () => {
     await query.execute();
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
-    expect(callArg.system).toBe('custom system');
+    expect(callArg.instructions).toBe('custom system');
 
     const textPart = callArg.messages[0].content[0];
     expect(textPart.text).toBe('custom user text');
@@ -225,9 +227,10 @@ describe('AnalyzeImages', () => {
     expect(result.result).toBe('filtered');
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
     const imageParts = callArg.messages[0].content.filter(
-      (p: any) => p.type === 'image',
+      (p: any) => p.type === 'file',
     );
     expect(imageParts).toHaveLength(1);
-    expect(imageParts[0].image).toBe('https://ok.com/img.png');
+    expect(imageParts[0].mediaType).toBe('image');
+    expect(imageParts[0].data).toBe('https://ok.com/img.png');
   });
 });

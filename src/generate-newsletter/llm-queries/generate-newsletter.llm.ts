@@ -100,7 +100,7 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
       presencePenalty: this.presencePenalty,
       frequencyPenalty: this.frequencyPenalty,
       schema: this.schema,
-      system: this.systemPrompt,
+      instructions: this.systemPrompt,
       prompt: this.userPrompt,
     });
 

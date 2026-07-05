@@ -116,14 +116,14 @@ describe('GenerateNewsletter.execute', () => {
     expect(callArg.frequencyPenalty).toBeUndefined();
 
     // system prompt validations
-    expect(typeof callArg.system).toBe('string');
-    expect(callArg.system).toContain('TechPulse');
-    expect(callArg.system).toContain('AI, Robotics');
-    expect(callArg.system).toContain('hyphen (-) instead of a tilde (~)');
-    expect(callArg.system).toContain('June 1-2, 2025');
-    expect(callArg.system).toContain('Subscribe to TechPulse');
-    expect(callArg.system).toContain('https://example.com/subscribe');
-    expect(callArg.system).toContain('Temporal Validity (HARD RULE)');
+    expect(typeof callArg.instructions).toBe('string');
+    expect(callArg.instructions).toContain('TechPulse');
+    expect(callArg.instructions).toContain('AI, Robotics');
+    expect(callArg.instructions).toContain('hyphen (-) instead of a tilde (~)');
+    expect(callArg.instructions).toContain('June 1-2, 2025');
+    expect(callArg.instructions).toContain('Subscribe to TechPulse');
+    expect(callArg.instructions).toContain('https://example.com/subscribe');
+    expect(callArg.instructions).toContain('Temporal Validity (HARD RULE)');
 
     // user prompt validations
     expect(typeof callArg.prompt).toBe('string');
@@ -339,34 +339,34 @@ describe('GenerateNewsletter.execute', () => {
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
 
     // Start section should skip opening entirely when freeFormIntro=true
-    expect(callArg.system).toContain(
+    expect(callArg.instructions).toContain(
       'Begin directly with the Overall Briefing section (no separate opening heading or greeting).',
     );
-    expect(callArg.system).not.toContain('Specify date');
-    expect(callArg.system).not.toContain(
+    expect(callArg.instructions).not.toContain('Specify date');
+    expect(callArg.instructions).not.toContain(
       'begin with neutral, objective greeting',
     );
 
     // Briefing section should use Heading 2 with date + briefing word, no domain
-    expect(callArg.system).toContain('Heading 2 (##)');
-    expect(callArg.system).toContain(
+    expect(callArg.instructions).toContain('Heading 2 (##)');
+    expect(callArg.instructions).toContain(
       'do NOT include domain or field names in the heading',
     );
-    expect(callArg.system).toContain(
+    expect(callArg.instructions).toContain(
       'Immediately follow with a brief paragraph introducing key factual information',
     );
-    expect(callArg.system).toContain(
+    expect(callArg.instructions).toContain(
       'then include the following bullet points:',
     );
-    expect(callArg.system).not.toContain('- Brief Introduction:');
+    expect(callArg.instructions).not.toContain('- Brief Introduction:');
 
     // Category headings should also use Heading 2
-    expect(callArg.system).toContain(
+    expect(callArg.instructions).toContain(
       'Use Heading 2 (##) for each category heading',
     );
 
     // Additional Requirements should NOT contain the fixed heading directive
-    expect(callArg.system).not.toContain(
+    expect(callArg.instructions).not.toContain(
       'Declare this part as `Heading 1`(#).',
     );
   });
@@ -402,15 +402,15 @@ describe('GenerateNewsletter.execute', () => {
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
 
-    expect(callArg.system).toContain(
+    expect(callArg.instructions).toContain(
       '**Required title keyword**: "Weekly AI Research Digest"',
     );
-    expect(callArg.system).toContain('This phrase MUST appear in the title');
-    expect(callArg.system).toContain(
+    expect(callArg.instructions).toContain('This phrase MUST appear in the title');
+    expect(callArg.instructions).toContain(
       "Combine it with key context from today's newsletter content",
     );
     // When titleContext is provided, should NOT contain the default title guideline
-    expect(callArg.system).not.toContain(
+    expect(callArg.instructions).not.toContain(
       'Title should objectively convey core facts of 1-2 most important news items today',
     );
   });
@@ -534,7 +534,7 @@ describe('GenerateNewsletter.execute', () => {
     await instance.execute();
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
-    expect(callArg.system).toBe('custom system prompt');
+    expect(callArg.instructions).toBe('custom system prompt');
     expect(callArg.prompt).toBe('custom user prompt');
 
     expect(customSystem).toHaveBeenCalledWith(
@@ -574,7 +574,7 @@ describe('GenerateNewsletter.execute', () => {
     await instance.execute();
 
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
-    expect(callArg.system).toBe('custom system only');
+    expect(callArg.instructions).toBe('custom system only');
     expect(callArg.prompt).toContain('Below is the complete list');
   });
 
@@ -606,6 +606,6 @@ describe('GenerateNewsletter.execute', () => {
     expect(callArg.topK).toBe(40);
     expect(callArg.presencePenalty).toBe(0.1);
     expect(callArg.frequencyPenalty).toBe(0.2);
-    expect(callArg.system).not.toContain('Subscribe to');
+    expect(callArg.instructions).not.toContain('Subscribe to');
   });
 });

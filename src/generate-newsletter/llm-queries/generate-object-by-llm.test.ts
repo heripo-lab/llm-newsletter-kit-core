@@ -25,7 +25,7 @@ describe('generateObjectByLLM', () => {
     const result = await generateObjectByLLM({
       model,
       schema,
-      system: 'test system',
+      instructions: 'test system',
       prompt: 'test prompt',
       maxRetries: 3,
     });
@@ -33,7 +33,7 @@ describe('generateObjectByLLM', () => {
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
         model,
-        system: 'test system',
+        instructions: 'test system',
         prompt: 'test prompt',
         maxRetries: 3,
         output: Output.object({ schema }),

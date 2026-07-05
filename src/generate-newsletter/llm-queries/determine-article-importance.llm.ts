@@ -49,7 +49,7 @@ export default class DetermineArticleImportance<TaskId> extends LLMQuery<
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
       schema: this.schema,
-      system: this.systemPrompt,
+      instructions: this.systemPrompt,
       prompt: this.userPrompt,
     });
 
