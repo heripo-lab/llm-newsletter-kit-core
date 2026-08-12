@@ -11,6 +11,7 @@
   "displayDate": "February 6, 2025",
   "isoDate": "2025-02-06",
   "maxRetries": 3,
+  "existTags": ["AI", "LLM", "Research", "Product Launch"],
   "templateMarkers": {
     "title": "title",
     "content": "content"

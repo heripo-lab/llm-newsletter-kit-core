@@ -284,18 +284,37 @@ Playground scripts let you run individual LLM query classes in isolation — no 
 4. Edit `playground/data/articles.json` with your target articles.
 5. (Optional) Replace `playground/data/template.html` with your actual email template.
 
-### Run
+### Custom Prompts (optional)
+
+To test custom LLM prompts per pipeline stage (the `PromptProvider` interface), copy the example prompt module and edit it:
 
 ```bash
-npm run playground:generate-newsletter
+cp playground/data-examples/prompts.example.ts playground/data/prompts.ts
+```
+
+Every builder in `prompts.ts` is optional — delete the ones you don't want to override and those stages fall back to the built-in default prompts. Each playground script logs whether it is running with custom or default prompts.
+
+### Run
+
+Each pipeline stage can be run in isolation:
+
+```bash
+npm run playground:classify-tags          # ❶ Tag classification
+npm run playground:analyze-images         # ❷ Image analysis (multimodal model required)
+npm run playground:determine-importance   # ❸ Importance scoring
+npm run playground:generate-newsletter    # ❹ Newsletter generation
 ```
 
 ### Output
 
 Results are saved to `playground/output/` (git-ignored):
 
+- `classify-tags.md` — Assigned tags per article
+- `analyze-images.md` — Image analysis context per article
+- `determine-importance.md` — Importance score table
 - `newsletter.md` — Generated markdown with title in frontmatter
 - `newsletter.html` — Rendered HTML with CSS inlined (juice)
+- `usage.md` — Token usage report (newsletter generation)
 
 ### Data Management
 

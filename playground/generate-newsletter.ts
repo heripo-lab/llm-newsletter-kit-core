@@ -1,7 +1,3 @@
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createTogetherAI } from '@ai-sdk/togetherai';
 import { JSDOM } from 'jsdom';
 import juice from 'juice';
 import { writeFile } from 'node:fs/promises';
@@ -18,47 +14,18 @@ import {
   OUTPUT_DIR,
   consoleLogger,
   createDateService,
+  createModel,
+  describePromptBuilder,
   ensureDir,
+  loadConfig,
   loadJson,
+  loadPromptProvider,
   loadText,
 } from './_shared';
 
-type PlaygroundConfig = {
-  provider: 'openai' | 'anthropic' | 'google' | 'togetherai';
-  apiKey: string;
-  model: string;
-  outputLanguage: string;
-  expertField: string[];
-  freeFormIntro?: boolean;
-  titleContext?: string;
-  newsletterBrandName: string;
-  subscribePageUrl?: string;
-  displayDate: string;
-  isoDate: string;
-  maxRetries?: number;
-  templateMarkers: {
-    title: string;
-    content: string;
-  };
-};
-
 async function main() {
   // 1. Load config
-  let config: PlaygroundConfig;
-  try {
-    config = await loadJson<PlaygroundConfig>(resolve(DATA_DIR, 'config.json'));
-  } catch {
-    console.error(
-      '\n[ERROR] playground/data/config.json not found.\n' +
-        'Copy example files first:\n\n' +
-        '  mkdir -p playground/data\n' +
-        '  cp playground/data-examples/config.example.json playground/data/config.json\n' +
-        '  cp playground/data-examples/articles.example.json playground/data/articles.json\n' +
-        '  cp playground/data-examples/template.example.html playground/data/template.html\n\n' +
-        'Then edit playground/data/config.json with your OpenAI API key.\n',
-    );
-    process.exit(1);
-  }
+  const config = await loadConfig();
 
   // 2. Load articles
   const articles = await loadJson<ArticleForGenerateContent[]>(
@@ -68,32 +35,21 @@ async function main() {
   // 3. Load HTML template
   const htmlTemplate = await loadText(resolve(DATA_DIR, 'template.html'));
 
+  // 4. Load optional custom prompts
+  const prompts = await loadPromptProvider();
+  const promptBuilder = prompts.contentGenerate?.generateNewsletter;
+
   console.log(`\nLoaded ${articles.length} articles`);
   console.log(`Provider: ${config.provider ?? 'openai'}`);
   console.log(`Model: ${config.model}`);
   console.log(`Language: ${config.outputLanguage}`);
-  console.log(`Expert fields: ${config.expertField.join(', ')}\n`);
+  console.log(`Expert fields: ${config.expertField.join(', ')}`);
+  console.log(`Prompts: ${describePromptBuilder(promptBuilder)}\n`);
 
-  // 4. Create model from provider
-  const providers = {
-    openai: () => createOpenAI({ apiKey: config.apiKey })(config.model),
-    anthropic: () => createAnthropic({ apiKey: config.apiKey })(config.model),
-    google: () =>
-      createGoogleGenerativeAI({ apiKey: config.apiKey })(config.model),
-    togetherai: () => createTogetherAI({ apiKey: config.apiKey })(config.model),
-  };
+  // 5. Create model from provider
+  const model = createModel(config);
 
-  const providerName = config.provider ?? 'openai';
-  const createModel = providers[providerName];
-  if (!createModel) {
-    console.error(
-      `[ERROR] Unknown provider "${providerName}". Use: ${Object.keys(providers).join(', ')}`,
-    );
-    process.exit(1);
-  }
-  const model = createModel();
-
-  // 5. Execute LLM query
+  // 6. Execute LLM query
   const taskId = `playground-${Date.now()}`;
   const loggingExecutor = new LoggingExecutor(consoleLogger, taskId);
   const dateService = createDateService(config.displayDate, config.isoDate);
@@ -118,6 +74,7 @@ async function main() {
     dateService,
     subscribePageUrl: config.subscribePageUrl,
     newsletterBrandName: config.newsletterBrandName,
+    promptBuilder,
   });
 
   const { result, usage } = await query.execute();
@@ -127,7 +84,7 @@ async function main() {
     `Token usage: ${usage.inputTokens ?? 0} input / ${usage.outputTokens ?? 0} output / ${usage.totalTokens ?? 0} total\n`,
   );
 
-  // 6. Convert markdown to HTML
+  // 7. Convert markdown to HTML
   const contentHtml = safeMarkdown2Html(ensureHrBeforeH2(result.content), {
     window: new JSDOM('').window,
     linkTargetBlank: true,
@@ -136,16 +93,16 @@ async function main() {
     convertStrikethrough: true,
   });
 
-  // 7. Apply template markers
+  // 8. Apply template markers
   const { title: titleMarker, content: contentMarker } = config.templateMarkers;
   let renderedHtml = htmlTemplate
     .replace(`{{${titleMarker}}}`, result.title)
     .replace(`{{${contentMarker}}}`, contentHtml);
 
-  // 8. Inline CSS with juice
+  // 9. Inline CSS with juice
   renderedHtml = juice(renderedHtml);
 
-  // 9. Save outputs
+  // 10. Save outputs
   await ensureDir(OUTPUT_DIR);
 
   const mdContent = `---\ntitle: "${result.title}"\n---\n\n${result.content}`;
@@ -156,13 +113,13 @@ async function main() {
     'utf-8',
   );
 
-  // 10. Save usage report
+  // 11. Save usage report
   const usageMd = [
     '# Token Usage Report',
     '',
     `| Metric | Value |`,
     `|--------|-------|`,
-    `| Provider | ${providerName} |`,
+    `| Provider | ${config.provider ?? 'openai'} |`,
     `| Model | ${config.model} |`,
     `| Input Tokens | ${usage.inputTokens ?? 0} |`,
     `| Output Tokens | ${usage.outputTokens ?? 0} |`,
