@@ -16,11 +16,13 @@ import {
   createDateService,
   createModel,
   describePromptBuilder,
+  describeStageModel,
   ensureDir,
+  loadArticles,
   loadConfig,
-  loadJson,
   loadPromptProvider,
   loadText,
+  resolveStageModel,
 } from './_shared';
 
 async function main() {
@@ -28,7 +30,7 @@ async function main() {
   const config = await loadConfig();
 
   // 2. Load articles
-  const articles = await loadJson<ArticleForGenerateContent[]>(
+  const articles = await loadArticles<ArticleForGenerateContent[]>(
     resolve(DATA_DIR, 'articles.json'),
   );
 
@@ -39,15 +41,19 @@ async function main() {
   const prompts = await loadPromptProvider();
   const promptBuilder = prompts.contentGenerate?.generateNewsletter;
 
+  const generation = config.generation ?? {};
+
   console.log(`\nLoaded ${articles.length} articles`);
-  console.log(`Provider: ${config.provider ?? 'openai'}`);
-  console.log(`Model: ${config.model}`);
+  console.log(`Model: ${describeStageModel(config, 'generateNewsletter')}`);
   console.log(`Language: ${config.outputLanguage}`);
   console.log(`Expert fields: ${config.expertField.join(', ')}`);
-  console.log(`Prompts: ${describePromptBuilder(promptBuilder)}\n`);
+  console.log(`Prompts: ${describePromptBuilder(promptBuilder)}`);
+  console.log(
+    `Generation: temperature ${generation.temperature ?? '0.3 (core default)'} / maxOutputTokens ${generation.maxOutputTokens ?? 'unset'}\n`,
+  );
 
   // 5. Create model from provider
-  const model = createModel(config);
+  const model = createModel(config, 'generateNewsletter');
 
   // 6. Execute LLM query
   const taskId = `playground-${Date.now()}`;
@@ -75,6 +81,12 @@ async function main() {
     subscribePageUrl: config.subscribePageUrl,
     newsletterBrandName: config.newsletterBrandName,
     promptBuilder,
+    maxOutputTokens: generation.maxOutputTokens,
+    temperature: generation.temperature,
+    topP: generation.topP,
+    topK: generation.topK,
+    presencePenalty: generation.presencePenalty,
+    frequencyPenalty: generation.frequencyPenalty,
   });
 
   const { result, usage } = await query.execute();
@@ -119,8 +131,10 @@ async function main() {
     '',
     `| Metric | Value |`,
     `|--------|-------|`,
-    `| Provider | ${config.provider ?? 'openai'} |`,
-    `| Model | ${config.model} |`,
+    `| Provider | ${resolveStageModel(config, 'generateNewsletter').provider} |`,
+    `| Model | ${resolveStageModel(config, 'generateNewsletter').model} |`,
+    `| Temperature | ${generation.temperature ?? 0.3} |`,
+    `| Max Output Tokens | ${generation.maxOutputTokens ?? 'unset'} |`,
     `| Input Tokens | ${usage.inputTokens ?? 0} |`,
     `| Output Tokens | ${usage.outputTokens ?? 0} |`,
     `| Total Tokens | ${usage.totalTokens ?? 0} |`,

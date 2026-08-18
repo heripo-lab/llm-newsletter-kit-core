@@ -12,26 +12,27 @@ import {
   createDateService,
   createModel,
   describePromptBuilder,
+  describeStageModel,
   ensureDir,
+  loadArticles,
   loadConfig,
-  loadJson,
   loadPromptProvider,
 } from './_shared';
 
 async function main() {
   const config = await loadConfig();
-  const articles = await loadJson<UnscoredArticle[]>(
+  const articles = await loadArticles<UnscoredArticle[]>(
     resolve(DATA_DIR, 'articles.json'),
   );
   const prompts = await loadPromptProvider();
   const promptBuilder = prompts.analysis?.determineImportance;
 
   console.log(`\nLoaded ${articles.length} articles`);
-  console.log(`Provider: ${config.provider ?? 'openai'} / ${config.model}`);
+  console.log(`Model: ${describeStageModel(config, 'determineImportance')}`);
   console.log(`Publication date: ${config.isoDate}`);
   console.log(`Prompts: ${describePromptBuilder(promptBuilder)}\n`);
 
-  const model = createModel(config);
+  const model = createModel(config, 'determineImportance');
   const taskId = `playground-determine-importance-${Date.now()}`;
   const loggingExecutor = new LoggingExecutor(consoleLogger, taskId);
   const dateService = createDateService(config.displayDate, config.isoDate);

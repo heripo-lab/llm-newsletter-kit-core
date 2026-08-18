@@ -2,6 +2,23 @@
   "provider": "openai",
   "apiKey": "sk-your-openai-api-key",
   "model": "gpt-4o-mini",
+
+  "models": {
+    "classifyTags": { "model": "gpt-4o-mini" },
+    "analyzeImages": { "model": "gpt-4o" },
+    "determineImportance": { "model": "gpt-4o" },
+    "generateNewsletter": {
+      "provider": "anthropic",
+      "apiKey": "sk-ant-your-anthropic-api-key",
+      "model": "claude-sonnet-4-6"
+    }
+  },
+
+  "generation": {
+    "temperature": 0.3,
+    "maxOutputTokens": 32000
+  },
+
   "outputLanguage": "English",
   "expertField": ["AI", "Technology"],
   "freeFormIntro": true,
@@ -12,6 +29,9 @@
   "isoDate": "2025-02-06",
   "maxRetries": 3,
   "existTags": ["AI", "LLM", "Research", "Product Launch"],
+  "minimumImportanceScoreRules": [
+    { "targetUrl": "https://example.com/board/notice", "minScore": 6 }
+  ],
   "templateMarkers": {
     "title": "title",
     "content": "content"

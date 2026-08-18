@@ -11,15 +11,16 @@ import {
   consoleLogger,
   createModel,
   describePromptBuilder,
+  describeStageModel,
   ensureDir,
+  loadArticles,
   loadConfig,
-  loadJson,
   loadPromptProvider,
 } from './_shared';
 
 async function main() {
   const config = await loadConfig();
-  const articles = await loadJson<UnscoredArticle[]>(
+  const articles = await loadArticles<UnscoredArticle[]>(
     resolve(DATA_DIR, 'articles.json'),
   );
   const prompts = await loadPromptProvider();
@@ -27,11 +28,11 @@ async function main() {
   const existTags = config.existTags ?? [];
 
   console.log(`\nLoaded ${articles.length} articles`);
-  console.log(`Provider: ${config.provider ?? 'openai'} / ${config.model}`);
+  console.log(`Model: ${describeStageModel(config, 'classifyTags')}`);
   console.log(`Prompts: ${describePromptBuilder(promptBuilder)}`);
   console.log(`Existing tags: ${existTags.length}\n`);
 
-  const model = createModel(config);
+  const model = createModel(config, 'classifyTags');
   const taskId = `playground-classify-tags-${Date.now()}`;
   const loggingExecutor = new LoggingExecutor(consoleLogger, taskId);
   const options = {
@@ -63,7 +64,12 @@ async function main() {
     console.log(`[${article.id}] ${article.title}`);
     console.log(`  → ${tags}\n`);
 
-    lines.push(`## [${article.id}] ${article.title}`, '', `- Tags: ${tags}`, '');
+    lines.push(
+      `## [${article.id}] ${article.title}`,
+      '',
+      `- Tags: ${tags}`,
+      '',
+    );
   }
 
   lines.push('---', '', `Total tokens: ${totalTokens}`);

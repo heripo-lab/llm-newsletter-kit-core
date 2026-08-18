@@ -11,26 +11,27 @@ import {
   consoleLogger,
   createModel,
   describePromptBuilder,
+  describeStageModel,
   ensureDir,
+  loadArticles,
   loadConfig,
-  loadJson,
   loadPromptProvider,
 } from './_shared';
 
 async function main() {
   const config = await loadConfig();
-  const articles = await loadJson<UnscoredArticle[]>(
+  const articles = await loadArticles<UnscoredArticle[]>(
     resolve(DATA_DIR, 'articles.json'),
   );
   const prompts = await loadPromptProvider();
   const promptBuilder = prompts.analysis?.analyzeImages;
 
   console.log(`\nLoaded ${articles.length} articles`);
-  console.log(`Provider: ${config.provider ?? 'openai'} / ${config.model}`);
+  console.log(`Model: ${describeStageModel(config, 'analyzeImages')}`);
   console.log('Note: this stage requires a multimodal model.');
   console.log(`Prompts: ${describePromptBuilder(promptBuilder)}\n`);
 
-  const model = createModel(config);
+  const model = createModel(config, 'analyzeImages');
   const taskId = `playground-analyze-images-${Date.now()}`;
   const loggingExecutor = new LoggingExecutor(consoleLogger, taskId);
   const options = {

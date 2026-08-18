@@ -21,10 +21,49 @@ export const PLAYGROUND_DIR = __dirname;
 export const DATA_DIR = resolve(__dirname, 'data');
 export const OUTPUT_DIR = resolve(__dirname, 'output');
 
+export type ProviderName = 'openai' | 'anthropic' | 'google' | 'togetherai';
+
+/** Pipeline stages that run an LLM query. */
+export type PlaygroundStage =
+  | 'classifyTags'
+  | 'analyzeImages'
+  | 'determineImportance'
+  | 'generateNewsletter';
+
+/**
+ * Per-stage model override. Any omitted field falls back to the
+ * top-level `provider` / `apiKey` / `model`.
+ *
+ * Real pipelines often mix providers — e.g. OpenAI for the analysis
+ * stages and Anthropic for content generation.
+ */
+export type StageModelConfig = {
+  provider?: ProviderName;
+  apiKey?: string;
+  model?: string;
+};
+
+/**
+ * Sampling / output options forwarded to the newsletter generation query.
+ * Omitted values fall back to the core defaults (temperature: 0.3, rest unset).
+ */
+export type GenerationOptions = {
+  temperature?: number;
+  maxOutputTokens?: number;
+  topP?: number;
+  topK?: number;
+  presencePenalty?: number;
+  frequencyPenalty?: number;
+};
+
 export type PlaygroundConfig = {
-  provider: 'openai' | 'anthropic' | 'google' | 'togetherai';
+  provider: ProviderName;
   apiKey: string;
   model: string;
+  /** Optional per-stage model overrides. */
+  models?: Partial<Record<PlaygroundStage, StageModelConfig>>;
+  /** Optional generation params for the newsletter generation stage. */
+  generation?: GenerationOptions;
   outputLanguage: string;
   expertField: string[];
   freeFormIntro?: boolean;
@@ -63,6 +102,36 @@ export async function loadJson<T>(filePath: string): Promise<T> {
   return JSON.parse(raw) as T;
 }
 
+/**
+ * Converts a snake_case DB dump (e.g. an export from heripo-research-radar)
+ * into the camelCase shape core's UnscoredArticle / ArticleForGenerateContent expect.
+ * Already-camelCase records (detailContent present) pass through unchanged.
+ */
+function toCamelArticle(raw: Record<string, any>): Record<string, any> {
+  if (raw.detailContent !== undefined) return raw;
+
+  return {
+    ...raw,
+    id: raw.id ?? raw.post_id ?? raw.uniq_id,
+    detailContent: raw.detail_content,
+    hasAttachedImage: raw.has_attached_image,
+    imageContextByLlm: raw.image_context_by_llm,
+    targetUrl: raw.target_url,
+    importanceScore: raw.importance_score,
+    contentType: raw.content_type,
+    publishedDate: raw.date,
+  };
+}
+
+/**
+ * Loads playground/data/articles.json and normalizes snake_case DB dumps to
+ * the camelCase shape core expects. Already-camelCase files pass through unchanged.
+ */
+export async function loadArticles<T>(filePath: string): Promise<T> {
+  const raw = await loadJson<Record<string, any>[]>(filePath);
+  return raw.map(toCamelArticle) as T;
+}
+
 export async function loadText(filePath: string): Promise<string> {
   return readFile(filePath, 'utf-8');
 }
@@ -90,25 +159,63 @@ export async function loadConfig(): Promise<PlaygroundConfig> {
   }
 }
 
-export function createModel(config: PlaygroundConfig): LanguageModel {
+/**
+ * Resolves the effective provider / apiKey / model for a stage,
+ * layering `config.models[stage]` over the top-level defaults.
+ */
+export function resolveStageModel(
+  config: PlaygroundConfig,
+  stage?: PlaygroundStage,
+): Required<StageModelConfig> {
+  const override = stage ? (config.models?.[stage] ?? {}) : {};
+
+  return {
+    provider: override.provider ?? config.provider ?? 'openai',
+    apiKey: override.apiKey ?? config.apiKey,
+    model: override.model ?? config.model,
+  };
+}
+
+export function createModel(
+  config: PlaygroundConfig,
+  stage?: PlaygroundStage,
+): LanguageModel {
+  const { provider, apiKey, model } = resolveStageModel(config, stage);
+
   const providers = {
-    openai: () => createOpenAI({ apiKey: config.apiKey })(config.model),
-    anthropic: () => createAnthropic({ apiKey: config.apiKey })(config.model),
-    google: () =>
-      createGoogleGenerativeAI({ apiKey: config.apiKey })(config.model),
-    togetherai: () => createTogetherAI({ apiKey: config.apiKey })(config.model),
+    openai: () => createOpenAI({ apiKey })(model),
+    anthropic: () => createAnthropic({ apiKey })(model),
+    google: () => createGoogleGenerativeAI({ apiKey })(model),
+    togetherai: () => createTogetherAI({ apiKey })(model),
   };
 
-  const providerName = config.provider ?? 'openai';
-  const createProviderModel = providers[providerName];
+  const createProviderModel = providers[provider];
   if (!createProviderModel) {
     console.error(
-      `[ERROR] Unknown provider "${providerName}". Use: ${Object.keys(providers).join(', ')}`,
+      `[ERROR] Unknown provider "${provider}". Use: ${Object.keys(providers).join(', ')}`,
+    );
+    process.exit(1);
+  }
+
+  if (!apiKey) {
+    console.error(
+      `[ERROR] No apiKey for stage "${stage ?? 'default'}" (provider: ${provider}).\n` +
+        `Set "apiKey" at the top level, or under "models.${stage}" in config.json.`,
     );
     process.exit(1);
   }
 
   return createProviderModel();
+}
+
+/** `openai / gpt-5-mini` — for logging which model a stage actually uses. */
+export function describeStageModel(
+  config: PlaygroundConfig,
+  stage?: PlaygroundStage,
+): string {
+  const { provider, model } = resolveStageModel(config, stage);
+  const overridden = stage && config.models?.[stage] ? ' (override)' : '';
+  return `${provider} / ${model}${overridden}`;
 }
 
 /**
@@ -129,9 +236,7 @@ export async function loadPromptProvider(): Promise<PromptProvider> {
   return (mod.default ?? {}) as PromptProvider;
 }
 
-export function describePromptBuilder(
-  builder?: PromptBuilder<never>,
-): string {
+export function describePromptBuilder(builder?: PromptBuilder<never>): string {
   if (!builder || (!builder.system && !builder.user)) {
     return 'built-in defaults (system + user)';
   }
