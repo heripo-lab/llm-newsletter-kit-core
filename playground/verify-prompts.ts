@@ -1,11 +1,11 @@
 /**
- * 커스텀 프롬프트(playground/data/prompts.ts)가 core 내장 기본 프롬프트와
- * 완전히 동일한 문자열을 만들어내는지 검증한다.
+ * Verifies that the custom prompts (playground/data/prompts.ts) render byte-identical
+ * strings to the core's built-in default prompts.
  *
- * LLM 을 호출하지 않고 렌더링된 프롬프트 문자열만 비교하므로 비용이 0 이다.
+ * Costs nothing — only compares rendered prompt strings without calling an LLM.
  *
- * heripo-research-radar 의 실제 두 가지 설정(일반 / KRAS)을 모두 재현해
- * 기본 프롬프트의 조건 분기(freeFormIntro, titleContext, minScore)를 전부 통과시킨다.
+ * Reproduces both real-world heripo-research-radar configurations (general / KRAS)
+ * to exercise every conditional branch in the default prompts (freeFormIntro, titleContext, minScore).
  *
  *   npm run playground:verify-prompts
  */
@@ -33,8 +33,8 @@ import {
 const KRAS_TARGET_URL = 'https://www.kras.or.kr/?r=kras&m=bbs&bid=notice';
 
 /**
- * research-radar 가 core 로 넘기는 실제 설정 조합.
- * 기본 프롬프트의 모든 조건 분기를 덮도록 구성했다.
+ * Real configuration combinations that research-radar passes into core.
+ * Structured to cover every conditional branch in the default prompts.
  */
 const SCENARIOS = [
   {
@@ -150,7 +150,7 @@ async function main() {
       },
       llm: { maxRetries: config.maxRetries ?? 3 },
     };
-    // model 은 프롬프트 렌더링에 관여하지 않으므로 더미로 충분하다
+    // model is not involved in prompt rendering, so a dummy value is enough
     const base = {
       model: {} as any,
       logger: consoleLogger,

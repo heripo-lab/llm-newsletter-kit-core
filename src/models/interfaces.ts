@@ -56,7 +56,7 @@ export interface DateService {
   /**
    * Return a localized display string of the newsletter publication date
    * for use in newsletter content.
-   * @example "10월 15일"
+   * @example "October 15"
    */
   getPublicationDisplayDateString: () => string;
 }
