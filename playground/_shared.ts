@@ -208,7 +208,7 @@ export function createModel(
   return createProviderModel();
 }
 
-/** `openai / gpt-5-mini` — for logging which model a stage actually uses. */
+/** `openai / gpt-5.4-nano` — for logging which model a stage actually uses. */
 export function describeStageModel(
   config: PlaygroundConfig,
   stage?: PlaygroundStage,

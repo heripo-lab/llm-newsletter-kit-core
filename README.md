@@ -107,16 +107,16 @@ const config: GenerateNewsletterConfig<string> = {
   },
   analysisProvider: {
     // Configure LLM models for analysis
-    classifyTagOptions: { model: openai('gpt-5-mini') },
-    analyzeImagesOptions: { model: openai('gpt-5.1') },
-    determineScoreOptions: { model: openai('gpt-5.1') },
+    classifyTagOptions: { model: openai('gpt-5.4-nano') },
+    analyzeImagesOptions: { model: openai('gpt-5.4-nano') },
+    determineScoreOptions: { model: openai('gpt-5.4-nano') },
     fetchUnscoredArticles: async () => [/* ... */],
     fetchTags: async () => [/* ... */],
     update: async (article) => {},
   },
   contentGenerateProvider: {
     // Configure content generation
-    model: openai('gpt-5.1'),
+    model: openai('gpt-5.4-nano'),
     issueOrder: 1,
     newsletterBrandName: 'Tech Insight Weekly',
     publicationCriteria: { minimumArticleCountForIssue: 5 },
@@ -304,9 +304,9 @@ Production pipelines often mix providers — a cheap model for tagging, a multim
 {
   "provider": "openai",
   "apiKey": "sk-...",
-  "model": "gpt-4o-mini",
+  "model": "gpt-5.4-nano",
   "models": {
-    "analyzeImages": { "model": "gpt-4o" },
+    "analyzeImages": { "model": "gpt-5.4-nano" },
     "generateNewsletter": {
       "provider": "anthropic",
       "apiKey": "sk-ant-...",

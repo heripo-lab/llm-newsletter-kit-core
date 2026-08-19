@@ -1,12 +1,12 @@
 {
   "provider": "openai",
   "apiKey": "sk-your-openai-api-key",
-  "model": "gpt-4o-mini",
+  "model": "gpt-5.4-nano",
 
   "models": {
-    "classifyTags": { "model": "gpt-4o-mini" },
-    "analyzeImages": { "model": "gpt-4o" },
-    "determineImportance": { "model": "gpt-4o" },
+    "classifyTags": { "model": "gpt-5.4-nano" },
+    "analyzeImages": { "model": "gpt-5.4-nano" },
+    "determineImportance": { "model": "gpt-5.4-nano" },
     "generateNewsletter": {
       "provider": "anthropic",
       "apiKey": "sk-ant-your-anthropic-api-key",
