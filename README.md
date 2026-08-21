@@ -107,16 +107,16 @@ const config: GenerateNewsletterConfig<string> = {
   },
   analysisProvider: {
     // Configure LLM models for analysis
-    classifyTagOptions: { model: openai('gpt-5-mini') },
-    analyzeImagesOptions: { model: openai('gpt-5.1') },
-    determineScoreOptions: { model: openai('gpt-5.1') },
+    classifyTagOptions: { model: openai('gpt-5.4-nano') },
+    analyzeImagesOptions: { model: openai('gpt-5.4-nano') },
+    determineScoreOptions: { model: openai('gpt-5.4-nano') },
     fetchUnscoredArticles: async () => [/* ... */],
     fetchTags: async () => [/* ... */],
     update: async (article) => {},
   },
   contentGenerateProvider: {
     // Configure content generation
-    model: openai('gpt-5.1'),
+    model: openai('gpt-5.4-nano'),
     issueOrder: 1,
     newsletterBrandName: 'Tech Insight Weekly',
     publicationCriteria: { minimumArticleCountForIssue: 5 },
@@ -281,21 +281,77 @@ Playground scripts let you run individual LLM query classes in isolation — no 
    ```
 
 3. Edit `playground/data/config.json` with your OpenAI API key and options.
-4. Edit `playground/data/articles.json` with your target articles.
+4. Edit `playground/data/articles.json` with your target articles. Both camelCase field names (`detailContent`, `targetUrl`, …) and snake_case DB dumps (`detail_content`, `target_url`, …) are accepted — snake_case records are normalized automatically.
 5. (Optional) Replace `playground/data/template.html` with your actual email template.
+
+### Custom Prompts (optional)
+
+To test custom LLM prompts per pipeline stage (the `PromptProvider` interface), copy the example prompt module and edit it:
+
+```bash
+cp playground/data-examples/prompts.example.ts playground/data/prompts.ts
+```
+
+Every builder in `prompts.ts` is optional — delete the ones you don't want to override and those stages fall back to the built-in default prompts. Each playground script logs whether it is running with custom or default prompts.
+
+Prompt builders receive their values (`expertFields`, `outputLanguage`, `targetArticle`, `dateService`, …) as arguments rather than reading config directly, so a prompt module written this way works unchanged across different configurations. Those argument values come from `config.json` and `articles.json`.
+
+### Per-stage models (optional)
+
+Production pipelines often mix providers — a cheap model for tagging, a multimodal one for images, a stronger one for the final newsletter. Add a `models` block to override any stage; omitted fields fall back to the top-level `provider` / `apiKey` / `model`:
+
+```json
+{
+  "provider": "openai",
+  "apiKey": "sk-...",
+  "model": "gpt-5.4-nano",
+  "models": {
+    "analyzeImages": { "model": "gpt-5.4-nano" },
+    "generateNewsletter": {
+      "provider": "anthropic",
+      "apiKey": "sk-ant-...",
+      "model": "claude-sonnet-4-6"
+    }
+  }
+}
+```
+
+### Generation options (optional)
+
+Sampling and output limits for the newsletter generation stage. Omitted values use the core defaults (`temperature: 0.3`, everything else unset):
+
+```json
+{
+  "generation": {
+    "temperature": 0.3,
+    "maxOutputTokens": 32000
+  }
+}
+```
+
+Set `maxOutputTokens` when generating long newsletters — the generation query throws if the model stops on the token limit (`finishReason: "length"`).
 
 ### Run
 
+Each pipeline stage can be run in isolation:
+
 ```bash
-npm run playground:generate-newsletter
+npm run playground:classify-tags          # ❶ Tag classification
+npm run playground:analyze-images         # ❷ Image analysis (multimodal model required)
+npm run playground:determine-importance   # ❸ Importance scoring
+npm run playground:generate-newsletter    # ❹ Newsletter generation
 ```
 
 ### Output
 
 Results are saved to `playground/output/` (git-ignored):
 
+- `classify-tags.md` — Assigned tags per article
+- `analyze-images.md` — Image analysis context per article
+- `determine-importance.md` — Importance score table
 - `newsletter.md` — Generated markdown with title in frontmatter
 - `newsletter.html` — Rendered HTML with CSS inlined (juice)
+- `usage.md` — Token usage report (newsletter generation)
 
 ### Data Management
 

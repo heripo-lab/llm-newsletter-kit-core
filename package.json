@@ -42,6 +42,10 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,md,mdx}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,json,md,mdx}\"",
     "playground": "tsx",
+    "playground:verify-prompts": "tsx playground/verify-prompts.ts",
+    "playground:classify-tags": "tsx playground/classify-tags.ts",
+    "playground:analyze-images": "tsx playground/analyze-images.ts",
+    "playground:determine-importance": "tsx playground/determine-importance.ts",
     "playground:generate-newsletter": "tsx playground/generate-newsletter.ts"
   },
   "author": "kimhongyeon",
