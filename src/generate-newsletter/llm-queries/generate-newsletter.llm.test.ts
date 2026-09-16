@@ -473,6 +473,69 @@ describe('GenerateNewsletter.execute', () => {
     expect(res.usage.totalTokens).toBe(64);
   });
 
+  test('stops after 5 attempts and returns the last result instead of recursing forever', async () => {
+    const debug = vi.fn();
+
+    for (let i = 0; i < 10; i++) {
+      mockObjectOnce(
+        {
+          title: longTitle,
+          content: `Attempt ${i + 1}`,
+          isWrittenInOutputLanguage: true,
+          copyrightVerified: true,
+          factAccuracy: false,
+        },
+        buildUsage({ inputTokens: 10, outputTokens: 20, totalTokens: 30 }),
+      );
+    }
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({ logger: { debug } as any }),
+    );
+
+    const res = await instance.execute();
+
+    expect(generateText).toHaveBeenCalledTimes(5);
+    expect(res.result).toEqual({ title: longTitle, content: 'Attempt 5' });
+    // usage is aggregated across every attempt that was paid for
+    expect(res.usage.totalTokens).toBe(150);
+    expect(debug).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'generate.newsletter.verification.exhausted',
+        data: expect.objectContaining({ attempts: 5, factAccuracy: false }),
+      }),
+    );
+  });
+
+  test('does not log exhaustion when verification passes within the attempt cap', async () => {
+    const debug = vi.fn();
+
+    mockObjectOnce({
+      title: longTitle,
+      content: 'Bad',
+      isWrittenInOutputLanguage: true,
+      copyrightVerified: false,
+      factAccuracy: true,
+    });
+    mockObjectOnce({
+      title: longTitle,
+      content: 'Good',
+      isWrittenInOutputLanguage: true,
+      copyrightVerified: true,
+      factAccuracy: true,
+    });
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({ logger: { debug } as any }),
+    );
+
+    const res = await instance.execute();
+
+    expect(generateText).toHaveBeenCalledTimes(2);
+    expect(res.result.content).toBe('Good');
+    expect(debug).not.toHaveBeenCalled();
+  });
+
   test('throws error when finishReason is "length"', async () => {
     mockObjectOnce(
       {
