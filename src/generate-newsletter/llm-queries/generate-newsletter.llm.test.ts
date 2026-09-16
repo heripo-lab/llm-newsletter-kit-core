@@ -536,6 +536,44 @@ describe('GenerateNewsletter.execute', () => {
     expect(debug).not.toHaveBeenCalled();
   });
 
+  test('logs an unmatched title context when verification retries are exhausted', async () => {
+    const debug = vi.fn();
+
+    for (let i = 0; i < 5; i++) {
+      mockObjectOnce({
+        title: longTitle,
+        content: `Attempt ${i + 1}`,
+        isWrittenInOutputLanguage: true,
+        copyrightVerified: true,
+        factAccuracy: true,
+      });
+    }
+
+    const instance = new (GenerateNewsletter as any)(
+      buildConfig({
+        logger: { debug } as any,
+        options: {
+          content: {
+            outputLanguage: 'English',
+            expertField: ['AI', 'Robotics'],
+            titleContext: 'Required context',
+          },
+          llm: { maxRetries: 3 },
+        },
+      }),
+    );
+
+    await instance.execute();
+
+    expect(generateText).toHaveBeenCalledTimes(5);
+    expect(debug).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'generate.newsletter.verification.exhausted',
+        data: expect.objectContaining({ titleContextMatched: false }),
+      }),
+    );
+  });
+
   test('throws error when finishReason is "length"', async () => {
     mockObjectOnce(
       {
