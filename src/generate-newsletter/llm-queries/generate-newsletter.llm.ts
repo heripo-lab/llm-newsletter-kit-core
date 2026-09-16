@@ -36,6 +36,18 @@ type Config<TaskId> = BaseLLMQueryConfig<TaskId> & {
 
 type ReturnType = Pick<Newsletter, 'title' | 'content'>;
 
+/**
+ * Maximum number of generation attempts, including the first one.
+ *
+ * The self-verification fields in the output schema (isWrittenInOutputLanguage,
+ * copyrightVerified, factAccuracy) and the titleContext check each trigger a full
+ * regeneration — the most expensive call in the pipeline. A custom prompt that
+ * replaces the built-in one may never satisfy those fields, so the retry loop is
+ * capped rather than left unbounded. `llm.maxRetries` guards the AI SDK call and
+ * `chain.stopAfterAttempt` guards the chain; neither guards this loop.
+ */
+const MAX_GENERATION_ATTEMPTS = 5;
+
 export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
   TaskId,
   undefined,
@@ -90,6 +102,21 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
   }
 
   public async execute(): Promise<LLMQueryExecuteResult<ReturnType>> {
+    return this.executeAttempt(1);
+  }
+
+  /**
+   * Runs one generation attempt and retries while the output fails self-verification.
+   *
+   * On the final attempt the last result is returned as-is instead of throwing —
+   * an imperfect newsletter is more useful than none, and the caller has already
+   * paid for it.
+   *
+   * @param attempt 1-based attempt number, capped at MAX_GENERATION_ATTEMPTS
+   */
+  private async executeAttempt(
+    attempt: number,
+  ): Promise<LLMQueryExecuteResult<ReturnType>> {
     const { output, usage, finishReason } = await generateObjectByLLM({
       model: this.model,
       maxRetries: this.options.llm.maxRetries,
@@ -119,8 +146,26 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
       (this.options.content.titleContext &&
         !output.title.includes(this.options.content.titleContext));
 
+    if (needsRetry && attempt >= MAX_GENERATION_ATTEMPTS) {
+      this.logger.debug({
+        event: 'generate.newsletter.verification.exhausted',
+        taskId: this.taskId,
+        data: {
+          attempts: attempt,
+          isWrittenInOutputLanguage: output.isWrittenInOutputLanguage,
+          copyrightVerified: output.copyrightVerified,
+          factAccuracy: output.factAccuracy,
+          titleContextMatched: this.options.content.titleContext
+            ? output.title.includes(this.options.content.titleContext)
+            : undefined,
+        },
+      });
+
+      return { result: pick(output, ['title', 'content']), usage };
+    }
+
     if (needsRetry) {
-      const retryResult = await this.execute();
+      const retryResult = await this.executeAttempt(attempt + 1);
       return {
         result: retryResult.result,
         usage: addUsage(usage, retryResult.usage),
