@@ -4,7 +4,7 @@ Thank you for your interest in this project! This guide concisely explains local
 
 ## Development Environment
 
-- Node.js: >= 24.15.0 (CI verifies 24.15.0 and the latest 24.x)
+- Node.js: 24.15.0 or newer within 24.x, or >= 26.0.0 (Node.js 25 is not supported; CI verifies 24.15.0, the latest 24.x, and the latest 26.x)
 - Package manager: npm (with package-lock.json)
 - Language/Runtime: TypeScript, ESM (ES2022)
 
@@ -170,7 +170,7 @@ git push origin main
 - Location: `.github/workflows/ci.yml`
 - Triggers: Pull Request, manual
 - Steps: Format check → Lint → Typecheck → Build → Test (coverage) → upload dist/coverage artifacts
-- Node versions: 24.15.0 and the latest 24.x
+- Node versions: 24.15.0, the latest 24.x, and the latest 26.x
 
 ## Issues / Questions
 
