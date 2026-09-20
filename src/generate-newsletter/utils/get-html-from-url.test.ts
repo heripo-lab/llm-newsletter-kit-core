@@ -213,7 +213,11 @@ describe('getHtmlFromUrl', () => {
     vi.useFakeTimers();
     Math.random = vi.fn().mockReturnValue(0);
 
-    // A fetch mock that rejects when the signal aborts (to emulate real fetch)
+    // A fetch mock that rejects when the signal aborts (to emulate real fetch).
+    // It must reject with `signal.reason` rather than an Error of its own: the
+    // timeout aborts with a string, real fetch rejects with that value as-is,
+    // and a mock that wraps it in an Error hides whether the retry predicate
+    // can read a non-Error rejection.
     const hangingFetch = vi.fn(
       (_url: string, init?: RequestInit) =>
         new Promise((_, reject) => {
@@ -221,7 +225,7 @@ describe('getHtmlFromUrl', () => {
           if (signal) {
             const onAbort = () => {
               signal.removeEventListener('abort', onAbort);
-              reject(new Error('timeout'));
+              reject(signal.reason);
             };
             signal.addEventListener('abort', onAbort);
           }
@@ -488,5 +492,47 @@ describe('getHtmlFromUrl - branch edge cases', () => {
     expect(fetchMock).toHaveBeenCalledTimes(5);
     // This path does not call logger.error inside catch; final throw happens post-loop
     expect(logger.error).not.toHaveBeenCalled();
+  });
+  test.each([
+    ['a string reason', 'timeout after 10000ms'],
+    ['a DOMException-like object', { name: 'AbortError', message: '' }],
+    ['an object carrying only a message', { message: 'network down' }],
+  ])('retries when a customFetch rejects with %s', async (_label, reason) => {
+    vi.useFakeTimers();
+    Math.random = vi.fn().mockReturnValue(0);
+
+    const rejecting = vi.fn(() => Promise.reject(reason));
+    vi.stubGlobal('fetch', rejecting as any);
+
+    const logger = makeLogger();
+    const promise = getHtmlFromUrl(logger as any, 'https://slow.example');
+    const expectation = expect(promise).rejects.toBeDefined();
+
+    await vi.runAllTimersAsync();
+    await expectation;
+
+    // Retried to the cap rather than giving up on the first attempt.
+    expect(rejecting).toHaveBeenCalledTimes(5);
+  });
+
+  test.each([
+    ['a string naming no transient cause', 'parse failure'],
+    ['an object with neither name nor message', { code: 42 }],
+    ['a null rejection', null],
+  ])('does not retry %s', async (_label, reason) => {
+    vi.useFakeTimers();
+    Math.random = vi.fn().mockReturnValue(0);
+
+    const rejecting = vi.fn(() => Promise.reject(reason));
+    vi.stubGlobal('fetch', rejecting as any);
+
+    const logger = makeLogger();
+    const promise = getHtmlFromUrl(logger as any, 'https://slow.example');
+    const expectation = expect(promise).rejects.toBeDefined();
+
+    await vi.runAllTimersAsync();
+    await expectation;
+
+    expect(rejecting).toHaveBeenCalledTimes(1);
   });
 });
