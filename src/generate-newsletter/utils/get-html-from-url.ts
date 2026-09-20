@@ -42,23 +42,43 @@ function parseRetryAfter(header: string | null): number | null {
   return null;
 }
 
+/**
+ * Describes a rejection value for retry matching.
+ *
+ * A rejected fetch does not have to reject with an `Error`. `controller.abort()`
+ * takes an arbitrary reason and the request rejects with that value as-is, so
+ * the timeout below — which aborts with a string — rejects with a string. A
+ * `customFetch` may reject with anything at all. Matching only `Error`
+ * instances silently made those rejections non-retryable, which is the opposite
+ * of what a timeout should be.
+ */
+function describeRejection(error: unknown): string {
+  if (typeof error === 'string') return error;
+
+  if (typeof error === 'object' && error !== null) {
+    const { name, message } = error as { name?: unknown; message?: unknown };
+    const parts = [name, message].filter((part) => typeof part === 'string');
+
+    if (parts.length > 0) return parts.join(' ');
+  }
+
+  return String(error);
+}
+
 function shouldRetry(status: number | null, error: unknown): boolean {
   if (status === 429) return true; // Too Many Requests (429)
   if (status && status >= 500) return true; // 5xx server error
   if (status && status >= 400 && status < 500) return false; // Fatal client error
+
   // Network error or aborted
-  if (error instanceof Error) {
-    const msg = error.message.toLowerCase();
-    if (
-      msg.includes('aborted') ||
-      msg.includes('timeout') ||
-      msg.includes('network') ||
-      msg.includes('fetch')
-    ) {
-      return true;
-    }
-  }
-  return false;
+  const description = describeRejection(error).toLowerCase();
+
+  return (
+    description.includes('abort') ||
+    description.includes('timeout') ||
+    description.includes('network') ||
+    description.includes('fetch')
+  );
 }
 
 export async function getHtmlFromUrl(
