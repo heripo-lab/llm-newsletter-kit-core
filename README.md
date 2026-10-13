@@ -341,7 +341,8 @@ The function validates calendar dates and matches the extracted date and time
 against the verbatim evidence (ISO/numeric, Korean and English dates; colon,
 AM/PM and Korean clocks). A year omitted at a range endpoint is inherited only
 when the excerpt or source has one explicit year. Unsupported or ambiguous
-values are held. Timezones must also be stated in the source.
+values are held. A timezone must match the deadline's evidence. An explicit article-wide common
+timezone may supply an omitted zone; a different event's timezone cannot.
 `isArticleDeadlineGrounded(deadline, article)` exposes the same validation for
 host-managed legacy caches without an LLM call.
 Source grounding does not guarantee the model extracted every fact correctly;

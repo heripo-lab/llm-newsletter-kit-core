@@ -85,7 +85,7 @@ Do not mistake publication dates, event dates, or announcement dates for action 
 For an active deadline, date must have an unambiguous year in the source, formatted YYYY-MM-DD.
 If the year or deadline is ambiguous, omit that entry rather than guessing.
 Use source-local HH:mm or HH:mm:ss only when stated; otherwise time is null.
-Never fill an absent closing time with 23:59. Use an IANA timeZone only when the source specifies it; otherwise null.
+Never fill an absent closing time with 23:59. Use an IANA timeZone only when the deadline evidence specifies it or the article explicitly declares a common timezone for all times; otherwise null. Never borrow the timezone of another event.
 Use status cancelled only for an explicit cancellation or closure. A missing date is not cancellation.
 A cancelled entry may have date null when the source does not give its date.
 Evidence must be a verbatim excerpt of the supplied source supporting the facts.
@@ -196,6 +196,69 @@ function supportsTime(time: string, evidence: string): boolean {
   });
 }
 
+/** Collect explicit timezone claims without borrowing another event's clock. */
+function sourceTimeZones(text: string): Set<string> {
+  const zones: string[] =
+    text
+      .normalize('NFKC')
+      .match(
+        /\b(?:(?:UTC|GMT)(?:\s*[+−-]\d{1,2}(?::?\d{2})?)?|KST|JST|CET|CEST|PST|PDT|EST|EDT|CST|CDT|MST|MDT|IST|BST|(?:Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific|Etc|US|Canada|Mexico|Brazil|Chile|SystemV)\/[A-Za-z0-9_+-]+(?:\/[A-Za-z0-9_+-]+)*)(?![A-Za-z0-9_/])/gi,
+      ) ?? [];
+  if (/한국\s*(?:표준)?\s*(?:시간|시각)|대한민국\s*표준시/.test(text))
+    zones.push('Asia/Seoul');
+  if (/일본\s*(?:표준)?\s*(?:시간|시각)/.test(text)) zones.push('Asia/Tokyo');
+  const aliases: Record<string, string> = {
+    KST: 'Asia/Seoul',
+    JST: 'Asia/Tokyo',
+  };
+  return new Set(
+    zones.map((zone) => {
+      if (!zone.includes('/') && !/^(?:UTC|GMT|KST|JST)$/i.test(zone))
+        return zone.toUpperCase();
+      try {
+        return new Intl.DateTimeFormat('en', {
+          timeZone: aliases[zone.toUpperCase()] ?? zone,
+        }).resolvedOptions().timeZone;
+      } catch {
+        // Unsupported offsets/zones are still explicit claims. They cannot be
+        // replaced with a different timezone mentioned elsewhere in the article.
+        return zone;
+      }
+    }),
+  );
+}
+
+function supportsTimeZone(
+  timeZone: string,
+  evidence: string,
+  source: string,
+): boolean {
+  let expected: string;
+  try {
+    expected = new Intl.DateTimeFormat('en', { timeZone }).resolvedOptions()
+      .timeZone;
+  } catch {
+    return false;
+  }
+  const explicit = sourceTimeZones(evidence);
+  if (explicit.size) return explicit.size === 1 && explicit.has(expected);
+
+  // Only an unqualified, article-wide declaration can supply an omitted zone.
+  // A workshop's own time or timezone is not a common declaration.
+  const common = new Set(
+    source
+      .normalize('NFKC')
+      .split(/\r?\n|(?<=[.!?])\s+/)
+      .filter((line) =>
+        /\ball\s+(?:(?:dates?|deadlines?)\s+and\s+)?(?:times?|deadlines?|schedules?)\s+(?:are\b|use\b|follow\b|in\b|:)|모든\s*(?:일정|날짜|시간|시각|마감|기한)/i.test(
+          line,
+        ),
+      )
+      .flatMap((line) => [...sourceTimeZones(line)]),
+  );
+  return common.size === 1 && common.has(expected);
+}
+
 /** Revalidate both newly extracted output and legacy caches against original text. */
 export function isArticleDeadlineGrounded(
   deadline: ArticleDeadline,
@@ -215,31 +278,14 @@ export function isArticleDeadlineGrounded(
     (!deadline.date || !supportsTime(deadline.time, evidence))
   )
     return false;
-  if (deadline.timeZone) {
-    try {
-      new Intl.DateTimeFormat('en', { timeZone: deadline.timeZone });
-    } catch {
-      return false;
-    }
-    const aliases: Record<string, string> = {
-      'Asia/Seoul': String.raw`\bKST\b|한국\s*(?:표준)?\s*(?:시간|시각)|대한민국\s*표준시`,
-      'Asia/Tokyo': String.raw`\bJST\b|일본\s*(?:표준)?\s*(?:시간|시각)`,
-      UTC: String.raw`\b(?:UTC|GMT)\b(?!\s*[+-])`,
-      'Etc/UTC': String.raw`\b(?:UTC|GMT)\b(?!\s*[+-])`,
-      GMT: String.raw`\b(?:UTC|GMT)\b(?!\s*[+-])`,
-      'Etc/GMT': String.raw`\b(?:UTC|GMT)\b(?!\s*[+-])`,
-    };
-    const escapedZone = deadline.timeZone.replace(
-      /[.*+?^${}()|[\]\\]/g,
-      '\\$&',
-    );
-    if (
-      !new RegExp(`(?<![A-Za-z_/])${escapedZone}(?![A-Za-z_/]|\\s*[+-])`).test(
-        source,
-      ) &&
-      !new RegExp(aliases[deadline.timeZone] ?? '(?!)', 'i').test(source)
+  if (
+    deadline.timeZone &&
+    !supportsTimeZone(
+      deadline.timeZone,
+      evidence,
+      `${article.title}\n${article.detailContent}`,
     )
-      return false;
-  }
+  )
+    return false;
   return true;
 }

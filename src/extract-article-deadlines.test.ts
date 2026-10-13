@@ -401,3 +401,106 @@ test('extraction drops duration-derived clocks while preserving an untimed deadl
   });
   expect(result.deadlines).toEqual([untimed]);
 });
+
+test('a deadline cannot borrow the timezone of another event in the article', async () => {
+  const evidence = 'Registration closes 2026-11-13 at 18:00 UTC.';
+  const source = {
+    title: 'Registration',
+    detailContent: `${evidence}\nWorkshop starts at 09:00 KST.`,
+  };
+  const wrong = { ...deadline, timeZone: 'Asia/Seoul', evidence };
+  const correct = { ...wrong, timeZone: 'UTC' };
+  expect(isArticleDeadlineGrounded(wrong, source)).toBe(false);
+  expect(isArticleDeadlineGrounded(correct, source)).toBe(true);
+  mockOutput([wrong, correct]);
+  expect(
+    (
+      await extractArticleDeadlines({
+        model,
+        article: source,
+        outputLanguage: 'English',
+      })
+    ).deadlines,
+  ).toEqual([correct]);
+});
+
+test.each([
+  ['Registration closes 2026-11-13 at 18:00.', 'Workshop starts at 09:00 KST.'],
+  ['Registration closes 2026-11-13 at 18:00 UTC.', 'All times are KST.'],
+  ['Registration closes 2026-11-13 at 18:00 JST.', 'All times are KST.'],
+  ['Registration closes 2026-11-13 at 18:00 GMT+9.', 'All times are KST.'],
+  [
+    'Registration closes 2026-11-13 at 18:00 Europe/Paris.',
+    'All times are KST.',
+  ],
+  [
+    'Registration closes 2026-11-13 at 18:00 Asia/Not_A_Zone.',
+    'All times are KST.',
+  ],
+  [
+    'Registration closes 2026-11-13 at 18:00 KST and UTC.',
+    'All times are KST.',
+  ],
+  [
+    'Registration closes 2026-11-13 at 18:00.',
+    'All times are KST.\nAll times are JST.',
+  ],
+  ['Registration closes 2026-11-13 at 18:00.', 'All workshop times are KST.'],
+  [
+    'Registration closes 2026-11-13 at 18:00.',
+    'All times for the workshop are KST.',
+  ],
+])(
+  'holds conflicting or event-specific timezone evidence: %s / %s',
+  (evidence, other) => {
+    expect(
+      isArticleDeadlineGrounded(
+        { ...deadline, timeZone: 'Asia/Seoul', evidence },
+        { title: 'Registration', detailContent: `${other}\n${evidence}` },
+      ),
+    ).toBe(false);
+  },
+);
+
+test.each([
+  ['All times are KST.', 'Asia/Seoul'],
+  ['All times are kst.', 'asia/seoul'],
+  ['All dates and times in this article are in UTC.', 'Etc/UTC'],
+  ['All deadlines use Europe/Paris.', 'Europe/Paris'],
+  ['모든 일정은 한국 표준 시간 기준입니다.', 'Asia/Seoul'],
+  ['모든 시각은 일본 시간 기준입니다.', 'Asia/Tokyo'],
+])(
+  'allows an explicit common timezone declaration: %s',
+  (declaration, timeZone) => {
+    const evidence = 'Registration closes 2026-11-13 at 18:00.';
+    expect(
+      isArticleDeadlineGrounded(
+        { ...deadline, timeZone, evidence },
+        { title: 'Registration', detailContent: `${declaration}\n${evidence}` },
+      ),
+    ).toBe(true);
+  },
+);
+
+test('explicit deadline timezones override a common declaration and equivalent UTC aliases agree', () => {
+  const evidence = 'Registration closes 2026-11-13 at 18:00 UTC (Etc/GMT).';
+  expect(
+    isArticleDeadlineGrounded(
+      { ...deadline, timeZone: 'GMT', evidence },
+      {
+        title: 'Registration',
+        detailContent: `All times are KST.\n${evidence}`,
+      },
+    ),
+  ).toBe(true);
+});
+
+test('an ambiguous abbreviation cannot be guessed as an IANA region timezone', () => {
+  const evidence = 'Registration closes 2026-11-13 at 18:00 PST.';
+  expect(
+    isArticleDeadlineGrounded(
+      { ...deadline, timeZone: 'America/Los_Angeles', evidence },
+      { title: 'Registration', detailContent: evidence },
+    ),
+  ).toBe(false);
+});
