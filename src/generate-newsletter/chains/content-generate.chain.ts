@@ -15,6 +15,7 @@ import type { Newsletter } from '~/models/newsletter';
 import { ensureHrBeforeH2 } from '~/utils/string';
 
 import GenerateNewsletter from '../llm-queries/generate-newsletter.llm';
+import { NewsletterTitleValidationError } from '../utils/newsletter-title';
 import { Chain, type ChainConfig } from './chain';
 
 type CoreContent = Pick<Newsletter, 'title' | 'content'>;
@@ -86,7 +87,13 @@ export default class ContentGenerateChain<TaskId> extends Chain<
             ),
         }),
       )
-      .withRetry({ stopAfterAttempt: this.options.chain.stopAfterAttempt });
+      .withRetry({
+        stopAfterAttempt: this.options.chain.stopAfterAttempt,
+        onFailedAttempt: (error: unknown) => {
+          // A full retry would regenerate the body and reset the title-only cap.
+          if (error instanceof NewsletterTitleValidationError) throw error;
+        },
+      });
   }
 
   private async fetchArticleCandidates(): Promise<ArticleForGenerateContent[]> {
@@ -163,6 +170,10 @@ export default class ContentGenerateChain<TaskId> extends Chain<
           newsletterBrandName: this.provider.newsletterBrandName,
           dateService: this.dateService,
           promptBuilder: this.promptProvider?.generateNewsletter,
+          titlePromptBuilder: this.promptProvider?.rewriteTitle,
+          recentTitles: await this.provider.fetchRecentTitles?.(
+            this.dateService.getPublicationISODateString(),
+          ),
         });
 
         const { result } = await generateNewsletter.execute();

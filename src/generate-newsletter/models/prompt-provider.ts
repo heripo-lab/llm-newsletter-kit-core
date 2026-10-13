@@ -51,6 +51,17 @@ export type GenerateNewsletterPromptContext = {
   titleContext?: string;
   subscribePageUrl?: UrlString;
   newsletterBrandName: string;
+  /** Titles only, selected by the host from its recent publication history. */
+  recentTitles?: string[];
+};
+
+export type RewriteNewsletterTitlePromptContext = {
+  outputLanguage: string;
+  titleContext?: string;
+  newsletterContent: string;
+  currentTitle: string;
+  recentTitles: string[];
+  rejectedTitles: string[];
 };
 
 // ─── Main interface ──────────────────────────────────────────────
@@ -82,5 +93,6 @@ export interface PromptProvider {
    */
   contentGenerate?: {
     generateNewsletter?: PromptBuilder<GenerateNewsletterPromptContext>;
+    rewriteTitle?: PromptBuilder<RewriteNewsletterTitlePromptContext>;
   };
 }

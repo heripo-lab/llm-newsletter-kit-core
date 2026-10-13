@@ -16,3 +16,4 @@ export type * from './models/log';
 export type * from './models/email';
 
 export { default as GenerateNewsletter } from './generate-newsletter';
+export { NewsletterTitleValidationError } from './generate-newsletter/utils/newsletter-title';

@@ -349,6 +349,45 @@ standalone function's `promptBuilder`. Each receives only the original title and
 body plus the requested output language. Replacing prompts retains schema and
 grounding validation; preserve the source-only and no-guessed-date rules.
 
+## Optional Recent-Title Guard
+
+Provide `contentGenerateProvider.fetchRecentTitles(publicationDate)` to enable
+title guarding. Return only titles from actually published issues in the desired
+window, such as the seven calendar days before the supplied publication date.
+The host owns the database query, issue scope and timezone; the core does not
+infer dates from a list of strings. Skipped issues never call this callback.
+
+```ts
+contentGenerateProvider.fetchRecentTitles = async (publicationDate) => {
+  return newsletterRepository.findPublishedTitles({
+    before: publicationDate,
+    lookbackDays: 7,
+  });
+};
+```
+
+Recent titles are exposed to custom generation builders as `context.recentTitles`
+and appended as reference data to the generation instructions. Past newsletter
+bodies are not loaded. Prompts discourage repeated headline facts, while the
+deterministic check ignores Unicode presentation variants, case, punctuation,
+symbols and spacing. Semantic equivalence beyond that comparison is a prompt
+instruction, not a guaranteed article-deduplication feature.
+
+If the title is a normalized duplicate, or misses `titleContext` in guarded mode,
+the core rewrites only the title at most twice using the generated body. The
+Markdown is unchanged, usage includes paid rewrite calls, and final HTML is
+rendered with the accepted title. Each rewrite still needs a 20-70 character
+title, the exact configured `titleContext`, and successful language/factual
+self-checks. Customize the rewrite through `promptProvider.contentGenerate.rewriteTitle`.
+
+Unresolved or failed rewrites throw the exported `NewsletterTitleValidationError`.
+The content chain does not retry this error, which would regenerate the body and
+reset the two-rewrite cap. SDK network retries remain controlled by
+`options.llm.maxRetries`. A failed history lookup also fails generation instead
+of silently turning off the guard. Without the callback, existing generation and
+title-context retry behavior are unchanged; an empty returned array still enables
+guarded title validation.
+
 ## Customizing LLM Prompts (PromptProvider)
 
 The kit ships with built-in prompts designed to cover a wide range of domains. However, these general-purpose prompts may not be flexible enough for specialized requirements. For example:
@@ -372,7 +411,8 @@ PromptProvider
 │   ├── determineImportance — Importance scoring (system / user)
 │   └── extractDeadlines    — Optional source deadline extraction (system / user)
 └── contentGenerate
-    └── generateNewsletter  — Final newsletter generation (system / user)
+    ├── generateNewsletter  — Final newsletter generation (system / user)
+    └── rewriteTitle        — Optional title-only repair (system / user)
 ```
 
 Each prompt slot is a `PromptBuilder<TContext>` — an object with optional `system` and `user` functions. The function receives a typed context object containing all the data the default prompt would use (articles, tags, expert fields, dates, etc.), so you have full control over prompt construction.
@@ -427,7 +467,7 @@ config.promptProvider = promptProvider;
 
 Prompt builders return strings synchronously. They replace prompts without changing output schemas, image attachments, title checks, or retry behavior. When replacing a prompt, include any date/source/format rules you want to retain.
 
-For full exported context types (`ClassifyTagsPromptContext`, `AnalyzeImagesPromptContext`, `DetermineImportancePromptContext`, `ExtractDeadlinesPromptContext`, and `GenerateNewsletterPromptContext`), see [prompt-provider.ts](./src/generate-newsletter/models/prompt-provider.ts).
+For full exported context types (`ClassifyTagsPromptContext`, `AnalyzeImagesPromptContext`, `DetermineImportancePromptContext`, `ExtractDeadlinesPromptContext`, `GenerateNewsletterPromptContext`, and `RewriteNewsletterTitlePromptContext`), see [prompt-provider.ts](./src/generate-newsletter/models/prompt-provider.ts).
 
 ## Public API Overview
 
