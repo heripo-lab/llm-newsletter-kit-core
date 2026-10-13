@@ -1,4 +1,11 @@
 export type * from './generate-newsletter/models/article';
+export type * from './generate-newsletter/models/deadline';
+export {
+  extractArticleDeadlines,
+  isArticleDeadlineGrounded,
+  type ExtractArticleDeadlinesConfig,
+  type ExtractArticleDeadlinesResult,
+} from './extract-article-deadlines';
 export type * from './generate-newsletter/models/interfaces';
 export type * from './generate-newsletter/models/prompt-provider';
 export type * from './models/newsletter';
@@ -10,3 +17,4 @@ export type * from './models/log';
 export type * from './models/email';
 
 export { default as GenerateNewsletter } from './generate-newsletter';
+export { NewsletterTitleValidationError } from './generate-newsletter/utils/newsletter-title';

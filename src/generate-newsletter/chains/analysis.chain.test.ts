@@ -65,6 +65,21 @@ function makeSut() {
 }
 
 describe('AnalysisChain', () => {
+  test('passes optional deadline extraction through insights and persists its result', async () => {
+    const { sut, provider } = makeSut();
+    const extractionOptions = { model: 'deadline-model' };
+    Object.assign(provider, { extractDeadlineOptions: extractionOptions });
+    const determined = [{ id: '1', importanceScore: 7, deadlines: [] }];
+    const { default: Insights } = await import('./article-insights.chain');
+    const mock = Insights as any;
+    mock.__generateInsightsMock.mockResolvedValueOnce(determined);
+    const result = await (sut as any).analyzeArticles([{ id: '1' }], []);
+    expect(mock.mock.calls[0][0].provider.extractDeadlineOptions).toBe(
+      extractionOptions,
+    );
+    await (sut as any).updateAnalysisContext(result);
+    expect(provider.update).toHaveBeenCalledWith(determined[0]);
+  });
   test('chain getter builds a runnable chain without throwing', () => {
     const { sut } = makeSut();
 

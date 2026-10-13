@@ -1,3 +1,5 @@
+import type { ArticleDeadline } from './deadline';
+
 import type { IsoDateString, MarkdownString, UrlString } from '~/models/common';
 
 /**
@@ -64,6 +66,13 @@ export type UnscoredArticle = {
    * @example "2024-10-12"
    */
   publishedDate?: IsoDateString;
+
+  /**
+   * Cached extraction from this article's current source text. An empty array
+   * means extraction succeeded with no deadlines; undefined means not extracted.
+   * The host must clear this field when the source changes.
+   */
+  deadlines?: ArticleDeadline[];
 };
 
 /**

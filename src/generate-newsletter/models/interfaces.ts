@@ -14,7 +14,7 @@ import type { ChainOptions, ContentOptions, LLMQueryOptions } from './options';
 import type { PromptProvider } from './prompt-provider';
 import type { HtmlTemplate } from './template';
 
-import type { UrlString } from '~/models/common';
+import type { IsoDateString, UrlString } from '~/models/common';
 import type { EmailMessage } from '~/models/email';
 import type { AppLogger, DateService, EmailService } from '~/models/interfaces';
 import type { Newsletter } from '~/models/newsletter';
@@ -146,6 +146,15 @@ export interface AnalysisProvider {
   };
 
   /**
+   * Opt in to source-grounded deadline extraction during article analysis.
+   * Omit to retain the existing analysis calls. An omitted model reuses the
+   * importance model. Persistence and reminder eligibility belong to the host.
+   */
+  extractDeadlineOptions?: {
+    model?: LanguageModel;
+  };
+
+  /**
    * Fetch articles without an importance score from the DB.
    * @returns List of unscored articles
    */
@@ -254,6 +263,13 @@ export interface ContentGenerateProvider {
    * Fetch candidate articles from the DB for newsletter generation.
    */
   fetchArticleCandidates: () => Promise<ArticleForGenerateContent[]>;
+
+  /**
+   * Opt in to recent-title guarding. The host selects titles from published
+   * issues in its desired window (e.g. the seven days before publicationDate).
+   * Called only when candidates qualify for an issue; no past bodies are needed.
+   */
+  fetchRecentTitles?: (publicationDate: IsoDateString) => Promise<string[]>;
 
   /**
    * HTML template for the newsletter.

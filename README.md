@@ -302,6 +302,105 @@ function configurePreview(emailService: EmailService) {
 
 The core sets the subject to `[Preview] <title>`, uses `htmlBody` for HTML, and builds a short plain-text issue summary. It skips preview when the result is `null`; fetch/send failures are logged without changing the saved ID returned by `generate()`. This option sends review copies, not a subscriber campaign.
 
+## Optional Source Deadline Extraction
+
+Set `analysisProvider.extractDeadlineOptions = {}` to extract action deadlines
+after article insights. This reuses the importance model; supply `{ model }` to
+use a separate model. The option is off by default and leaves existing analysis
+calls and score behavior unchanged.
+
+`AnalysisProvider.update(article)` receives optional `article.deadlines` entries
+with `title`, `kind`, ISO `date`, source-local `time`, explicit `timeZone`,
+`status`, and a source `evidence` excerpt. Multiple application deadlines are
+kept separately. Unknown times stay null; explicit cancellations can have a null
+date. Image descriptions and generated newsletter text are not extraction inputs.
+
+An empty array means extraction succeeded without supported deadlines. Undefined
+means extraction has not succeeded. The pipeline logs an extraction failure and
+keeps the score; the host must include unfinished extractions in future analysis
+selection if it wants to retry them. Persisted deadline arrays are reused, so
+clear them when the source text changes.
+
+The same public function can be used without crawling or generating an issue:
+
+```ts
+import { extractArticleDeadlines } from '@llm-newsletter-kit/core';
+
+const { deadlines, usage } = await extractArticleDeadlines({
+  model, // Your injected AI SDK LanguageModel
+  article: {
+    title: '2026 conference applications',
+    detailContent: 'Abstract submission closes 2026-11-13 at 18:00.',
+  },
+  outputLanguage: 'English',
+  maxRetries: 2,
+});
+```
+
+The function validates calendar dates and matches the extracted date and time
+against the verbatim evidence (ISO/numeric, Korean and English dates; colon,
+AM/PM and Korean clocks). A year omitted at a range endpoint is inherited only
+when the excerpt or source has one explicit year. Unsupported or ambiguous
+values are held. A timezone must match the deadline's evidence. An explicit article-wide common
+timezone may supply an omitted zone; a different event's timezone cannot.
+`isArticleDeadlineGrounded(deadline, article)` exposes the same validation for
+host-managed legacy caches without an LLM call.
+Source grounding does not guarantee the model extracted every fact correctly;
+the host remains responsible for original-source verification. It does not fetch
+URLs, filter by publication date, activate reminders, or implement a backfill.
+Only the host knows which articles appeared in the final published issue:
+`usedArticles` still contains all generation candidates, including omitted ones.
+
+Customize extraction using `promptProvider.analysis.extractDeadlines` or the
+standalone function's `promptBuilder`. Each receives only the original title and
+body plus the requested output language. Replacing prompts retains schema and
+grounding validation; preserve the source-only and no-guessed-date rules.
+
+## Optional Recent-Title Guard
+
+Provide `contentGenerateProvider.fetchRecentTitles(publicationDate)` to enable
+title guarding. Return only titles from actually published issues in the desired
+window, such as the seven calendar days before the supplied publication date.
+The host owns the database query, issue scope and timezone; the core does not
+infer dates from a list of strings. Skipped issues never call this callback.
+
+```ts
+contentGenerateProvider.fetchRecentTitles = async (publicationDate) => {
+  return newsletterRepository.findPublishedTitles({
+    before: publicationDate,
+    lookbackDays: 7,
+  });
+};
+```
+
+Recent titles are exposed to custom generation builders as `context.recentTitles`
+and appended as reference data to the generation instructions. Past newsletter
+bodies are not loaded. Prompts discourage repeated headline facts, while the
+deterministic check ignores Unicode presentation variants, case, punctuation,
+symbols, spacing and invisible Unicode characters. Semantic equivalence beyond that comparison is a prompt
+instruction, not a guaranteed article-deduplication feature.
+
+If the title is a normalized duplicate, or misses `titleContext` in guarded mode,
+the core rewrites only the title at most twice using the generated body. The
+Markdown is unchanged, usage includes paid rewrite calls, and final HTML is
+rendered with the accepted title. Each rewrite still needs a 20-70 character
+title, the exact configured `titleContext`, and successful language/factual
+self-checks. Customize the rewrite through `promptProvider.contentGenerate.rewriteTitle`.
+
+Unresolved or failed rewrites throw the exported `NewsletterTitleValidationError`.
+The content chain does not retry this error, which would regenerate the body and
+reset the two-rewrite cap. SDK network retries remain controlled by
+`options.llm.maxRetries`. A failed history lookup also fails generation instead
+of silently turning off the guard. Without the callback, existing generation and
+title-context retry behavior are unchanged; an empty returned array still enables
+guarded title validation.
+
+In guarded mode the SDK schemas accept string titles of any length, and the
+20-70 character requirement is enforced after generation. An invalid initial
+length therefore triggers title-only repair, and an invalid first rewrite can
+use the second attempt. Structural output errors remain failures. Without the
+history callback, the original strict SDK title-length schema is retained.
+
 ## Customizing LLM Prompts (PromptProvider)
 
 The kit ships with built-in prompts designed to cover a wide range of domains. However, these general-purpose prompts may not be flexible enough for specialized requirements. For example:
@@ -322,9 +421,11 @@ PromptProvider
 ├── analysis
 │   ├── classifyTags        — Tag classification (system / user)
 │   ├── analyzeImages       — Image analysis (system / user)
-│   └── determineImportance — Importance scoring (system / user)
+│   ├── determineImportance — Importance scoring (system / user)
+│   └── extractDeadlines    — Optional source deadline extraction (system / user)
 └── contentGenerate
-    └── generateNewsletter  — Final newsletter generation (system / user)
+    ├── generateNewsletter  — Final newsletter generation (system / user)
+    └── rewriteTitle        — Optional title-only repair (system / user)
 ```
 
 Each prompt slot is a `PromptBuilder<TContext>` — an object with optional `system` and `user` functions. The function receives a typed context object containing all the data the default prompt would use (articles, tags, expert fields, dates, etc.), so you have full control over prompt construction.
@@ -379,7 +480,7 @@ config.promptProvider = promptProvider;
 
 Prompt builders return strings synchronously. They replace prompts without changing output schemas, image attachments, title checks, or retry behavior. When replacing a prompt, include any date/source/format rules you want to retain.
 
-For full exported context types (`ClassifyTagsPromptContext`, `AnalyzeImagesPromptContext`, `DetermineImportancePromptContext`, and `GenerateNewsletterPromptContext`), see [prompt-provider.ts](./src/generate-newsletter/models/prompt-provider.ts).
+For full exported context types (`ClassifyTagsPromptContext`, `AnalyzeImagesPromptContext`, `DetermineImportancePromptContext`, `ExtractDeadlinesPromptContext`, `GenerateNewsletterPromptContext`, and `RewriteNewsletterTitlePromptContext`), see [prompt-provider.ts](./src/generate-newsletter/models/prompt-provider.ts).
 
 ## Public API Overview
 

@@ -102,6 +102,7 @@ export default class AnalysisChain<TaskId> extends Chain<
             classifyTagOptions: this.provider.classifyTagOptions,
             analyzeImagesOptions: this.provider.analyzeImagesOptions,
             determineScoreOptions: this.provider.determineScoreOptions,
+            extractDeadlineOptions: this.provider.extractDeadlineOptions,
           },
           options: this.options,
           loggingExecutor: new LoggingExecutor(
