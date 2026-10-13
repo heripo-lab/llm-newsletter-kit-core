@@ -37,6 +37,11 @@ export type DetermineImportancePromptContext = {
   minimumImportanceScoreRules: MinimumImportanceScoreRule[];
 };
 
+export type ExtractDeadlinesPromptContext = {
+  outputLanguage: string;
+  targetArticle: Pick<UnscoredArticle, 'title' | 'detailContent'>;
+};
+
 export type GenerateNewsletterPromptContext = {
   expertFields: string[];
   outputLanguage: string;
@@ -68,6 +73,7 @@ export interface PromptProvider {
     classifyTags?: PromptBuilder<ClassifyTagsPromptContext>;
     analyzeImages?: PromptBuilder<AnalyzeImagesPromptContext>;
     determineImportance?: PromptBuilder<DetermineImportancePromptContext>;
+    extractDeadlines?: PromptBuilder<ExtractDeadlinesPromptContext>;
   };
 
   /**

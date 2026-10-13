@@ -302,6 +302,53 @@ function configurePreview(emailService: EmailService) {
 
 The core sets the subject to `[Preview] <title>`, uses `htmlBody` for HTML, and builds a short plain-text issue summary. It skips preview when the result is `null`; fetch/send failures are logged without changing the saved ID returned by `generate()`. This option sends review copies, not a subscriber campaign.
 
+## Optional Source Deadline Extraction
+
+Set `analysisProvider.extractDeadlineOptions = {}` to extract action deadlines
+after article insights. This reuses the importance model; supply `{ model }` to
+use a separate model. The option is off by default and leaves existing analysis
+calls and score behavior unchanged.
+
+`AnalysisProvider.update(article)` receives optional `article.deadlines` entries
+with `title`, `kind`, ISO `date`, source-local `time`, explicit `timeZone`,
+`status`, and a source `evidence` excerpt. Multiple application deadlines are
+kept separately. Unknown times stay null; explicit cancellations can have a null
+date. Image descriptions and generated newsletter text are not extraction inputs.
+
+An empty array means extraction succeeded without supported deadlines. Undefined
+means extraction has not succeeded. The pipeline logs an extraction failure and
+keeps the score; the host must include unfinished extractions in future analysis
+selection if it wants to retry them. Persisted deadline arrays are reused, so
+clear them when the source text changes.
+
+The same public function can be used without crawling or generating an issue:
+
+```ts
+import { extractArticleDeadlines } from '@llm-newsletter-kit/core';
+
+const { deadlines, usage } = await extractArticleDeadlines({
+  model, // Your injected AI SDK LanguageModel
+  article: {
+    title: '2026 conference applications',
+    detailContent: 'Abstract submission closes 2026-11-13 at 18:00.',
+  },
+  outputLanguage: 'English',
+  maxRetries: 2,
+});
+```
+
+The function validates dates, times, time zones, and source-excerpt grounding.
+Source grounding does not guarantee the model extracted every fact correctly;
+the host remains responsible for original-source verification. It does not fetch
+URLs, filter by publication date, activate reminders, or implement a backfill.
+Only the host knows which articles appeared in the final published issue:
+`usedArticles` still contains all generation candidates, including omitted ones.
+
+Customize extraction using `promptProvider.analysis.extractDeadlines` or the
+standalone function's `promptBuilder`. Each receives only the original title and
+body plus the requested output language. Replacing prompts retains schema and
+grounding validation; preserve the source-only and no-guessed-date rules.
+
 ## Customizing LLM Prompts (PromptProvider)
 
 The kit ships with built-in prompts designed to cover a wide range of domains. However, these general-purpose prompts may not be flexible enough for specialized requirements. For example:
@@ -322,7 +369,8 @@ PromptProvider
 ├── analysis
 │   ├── classifyTags        — Tag classification (system / user)
 │   ├── analyzeImages       — Image analysis (system / user)
-│   └── determineImportance — Importance scoring (system / user)
+│   ├── determineImportance — Importance scoring (system / user)
+│   └── extractDeadlines    — Optional source deadline extraction (system / user)
 └── contentGenerate
     └── generateNewsletter  — Final newsletter generation (system / user)
 ```
@@ -379,7 +427,7 @@ config.promptProvider = promptProvider;
 
 Prompt builders return strings synchronously. They replace prompts without changing output schemas, image attachments, title checks, or retry behavior. When replacing a prompt, include any date/source/format rules you want to retain.
 
-For full exported context types (`ClassifyTagsPromptContext`, `AnalyzeImagesPromptContext`, `DetermineImportancePromptContext`, and `GenerateNewsletterPromptContext`), see [prompt-provider.ts](./src/generate-newsletter/models/prompt-provider.ts).
+For full exported context types (`ClassifyTagsPromptContext`, `AnalyzeImagesPromptContext`, `DetermineImportancePromptContext`, `ExtractDeadlinesPromptContext`, and `GenerateNewsletterPromptContext`), see [prompt-provider.ts](./src/generate-newsletter/models/prompt-provider.ts).
 
 ## Public API Overview
 

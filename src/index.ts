@@ -1,4 +1,10 @@
 export type * from './generate-newsletter/models/article';
+export type * from './generate-newsletter/models/deadline';
+export {
+  extractArticleDeadlines,
+  type ExtractArticleDeadlinesConfig,
+  type ExtractArticleDeadlinesResult,
+} from './extract-article-deadlines';
 export type * from './generate-newsletter/models/interfaces';
 export type * from './generate-newsletter/models/prompt-provider';
 export type * from './models/newsletter';

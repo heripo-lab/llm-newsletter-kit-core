@@ -9,6 +9,7 @@ import type {
 import { RunnablePassthrough } from '@langchain/core/runnables';
 import { pick } from 'es-toolkit';
 
+import { extractArticleDeadlines } from '~/extract-article-deadlines';
 import type { AnalysisProvider } from '~/generate-newsletter/models/interfaces';
 import type { PromptProvider } from '~/generate-newsletter/models/prompt-provider';
 import { LoggingExecutor } from '~/logging/logging-executor';
@@ -30,7 +31,10 @@ export type ArticleInsights = {
   tags: string[];
 } & Pick<
   AnalysisProvider,
-  'classifyTagOptions' | 'analyzeImagesOptions' | 'determineScoreOptions'
+  | 'classifyTagOptions'
+  | 'analyzeImagesOptions'
+  | 'determineScoreOptions'
+  | 'extractDeadlineOptions'
 >;
 
 type Config<TaskId> = ChainConfig<TaskId, ArticleInsights> & {
@@ -143,7 +147,55 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
       return reprocess(updated, iteration + 1);
     };
 
-    return reprocess(initial, 0);
+    return this.extractDeadlines(await reprocess(initial, 0));
+  }
+
+  private async extractDeadlines(
+    articles: ArticleForUpdateByAnalysis[],
+  ): Promise<ArticleForUpdateByAnalysis[]> {
+    const extractionOptions = this.provider.extractDeadlineOptions;
+    if (!extractionOptions) return articles;
+
+    const extractedArticles: ArticleForUpdateByAnalysis[] = [];
+    for (const article of articles) {
+      if (article.deadlines !== undefined) {
+        extractedArticles.push(article);
+        continue;
+      }
+      try {
+        const { deadlines } = await this.executeWithLogging(
+          {
+            event: 'insights.deadlines.extract',
+            level: 'debug',
+            startFields: { articleId: article.id },
+            doneFields: ({ deadlines, usage }) => ({
+              count: deadlines.length,
+              usage,
+            }),
+          },
+          () =>
+            extractArticleDeadlines({
+              model:
+                extractionOptions.model ??
+                this.provider.determineScoreOptions.model,
+              article,
+              outputLanguage: this.options.content.outputLanguage,
+              maxRetries: this.options.llm.maxRetries,
+              promptBuilder: this.promptProvider?.extractDeadlines,
+            }),
+        );
+        extractedArticles.push({ ...article, deadlines });
+      } catch (error) {
+        this.logger.error({
+          event: 'insights.deadlines.extract.failed',
+          taskId: this.taskId,
+          data: { articleId: article.id, error },
+        });
+        // Do not persist an empty-success marker after a failed extraction.
+        extractedArticles.push(article);
+      }
+    }
+    return extractedArticles;
   }
 
   private async classifyArticles(): Promise<TagWithArticleId[]> {

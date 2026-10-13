@@ -146,6 +146,15 @@ export interface AnalysisProvider {
   };
 
   /**
+   * Opt in to source-grounded deadline extraction during article analysis.
+   * Omit to retain the existing analysis calls. An omitted model reuses the
+   * importance model. Persistence and reminder eligibility belong to the host.
+   */
+  extractDeadlineOptions?: {
+    model?: LanguageModel;
+  };
+
+  /**
    * Fetch articles without an importance score from the DB.
    * @returns List of unscored articles
    */
