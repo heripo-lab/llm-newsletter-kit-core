@@ -280,3 +280,50 @@ test('truncated title rewrites are terminal instead of being saved', async () =>
     cause: expect.objectContaining({ message: 'Title output truncated.' }),
   });
 });
+
+test.each([
+  ['zero width space', '\u200B'],
+  ['word joiner', '\u2060'],
+  ['zero width non-joiner', '\u200C'],
+  ['zero width joiner', '\u200D'],
+  ['zero width no-break space', '\uFEFF'],
+  ['left-to-right mark', '\u200E'],
+  ['right-to-left override', '\u202E'],
+  ['directional isolate', '\u2066'],
+  ['soft hyphen', '\u00AD'],
+  ['text variation selector', '\uFE0E'],
+  ['emoji variation selector', '\uFE0F'],
+  ['supplementary variation selector', '\u{E0100}'],
+])(
+  'invisible %s characters cannot distinguish otherwise identical titles',
+  (_, character) => {
+    expect(normalizeNewsletterTitle(`Research${character}Radar News`)).toBe(
+      normalizeNewsletterTitle('Research Radar News'),
+    );
+  },
+);
+
+test('removing invisible marks precedes Unicode composition and preserves visible accents and Hangul', () => {
+  expect(normalizeNewsletterTitle('Cafe\u034F\u0301 news')).toBe(
+    normalizeNewsletterTitle('Café news'),
+  );
+  expect(normalizeNewsletterTitle('Café news')).not.toBe(
+    normalizeNewsletterTitle('Cafe news'),
+  );
+  expect(normalizeNewsletterTitle('연구\u200B소의 새로운 소식')).toBe(
+    normalizeNewsletterTitle('연구소의 새로운 소식'),
+  );
+  expect(normalizeNewsletterTitle('다른 연구 소식')).not.toBe(
+    normalizeNewsletterTitle('연구소의 새로운 소식'),
+  );
+  expect(normalizeNewsletterTitle('\u200B\u2060\uFEFF')).toBe('');
+});
+
+test('invisible characters in both stored and generated titles trigger title-only repair', async () => {
+  mockBody(oldTitle.replace(' ', '\u200B'));
+  mockTitle(oldTitle + '\u2060');
+  mockTitle(newTitle);
+  const result = await buildQuery([oldTitle + '\uFEFF']).execute();
+  expect(result.result).toEqual({ title: newTitle, content });
+  expect(generateText).toHaveBeenCalledTimes(3);
+});

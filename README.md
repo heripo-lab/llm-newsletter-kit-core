@@ -377,7 +377,7 @@ Recent titles are exposed to custom generation builders as `context.recentTitles
 and appended as reference data to the generation instructions. Past newsletter
 bodies are not loaded. Prompts discourage repeated headline facts, while the
 deterministic check ignores Unicode presentation variants, case, punctuation,
-symbols and spacing. Semantic equivalence beyond that comparison is a prompt
+symbols, spacing and invisible Unicode characters. Semantic equivalence beyond that comparison is a prompt
 instruction, not a guaranteed article-deduplication feature.
 
 If the title is a normalized duplicate, or misses `titleContext` in guarded mode,

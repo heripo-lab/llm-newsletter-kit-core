@@ -1,10 +1,13 @@
-/** Comparison ignores presentation-only punctuation, symbols, case and spacing. */
+/** Comparison ignores invisible markers, punctuation, symbols, case and spacing. */
 export function normalizeNewsletterTitle(title: string): string {
-  return title
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/[\p{P}\p{S}\p{Z}\s]/gu, '')
-    .replace(/\u200D|\uFE0F/gu, '');
+  return (
+    title
+      // Strip invisible markers first so they cannot interrupt Unicode composition.
+      .replace(/\p{Default_Ignorable_Code_Point}/gu, '')
+      .normalize('NFKC')
+      .toLowerCase()
+      .replace(/[\p{P}\p{S}\p{Z}\s]/gu, '')
+  );
 }
 
 /** A title-only repair failed; repeating the content chain must not reset its cap. */
