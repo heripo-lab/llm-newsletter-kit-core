@@ -244,13 +244,14 @@ function supportsTimeZone(
   if (explicit.size) return explicit.size === 1 && explicit.has(expected);
 
   // Only an unqualified, article-wide declaration can supply an omitted zone.
-  // A workshop's own time or timezone is not a common declaration.
+  // Require the declaration at the start of the sentence: a prefix such as
+  // 'Workshop:' scopes the claim to that event, even if it says 'all times'.
   const common = new Set(
     source
       .normalize('NFKC')
       .split(/\r?\n|(?<=[.!?])\s+/)
       .filter((line) =>
-        /\ball\s+(?:(?:dates?|deadlines?)\s+and\s+)?(?:times?|deadlines?|schedules?)\s+(?:are\b|use\b|follow\b|in\b|:)|모든\s*(?:일정|날짜|시간|시각|마감|기한)/i.test(
+        /^\s*(?:all\s+(?:(?:dates?|deadlines?)\s+and\s+)?(?:times?|deadlines?|schedules?)\s+(?:are\b|use\b|follow\b|in\b|:)|모든\s*(?:일정|날짜|시간|시각|마감|기한))/i.test(
           line,
         ),
       )
