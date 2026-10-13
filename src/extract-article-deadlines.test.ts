@@ -262,6 +262,10 @@ test.each([
   ['2026-10-16 오후 18시', '2026-10-16', '18:00'],
   ['2026-10-16 18시 99분', '2026-10-16', '18:00'],
   ['2026-10-16 18:00:99', '2026-10-16', '18:00'],
+  ['2026-10-16 마감. 처리에 18시간 소요', '2026-10-16', '18:00'],
+  ['2026-10-16 마감. 처리에 112시간 소요', '2026-10-16', '12:00'],
+  ['2026-10-16 마감. 처리에 18 시 간 소요', '2026-10-16', '18:00'],
+  ['2026-10-16 118시 마감', '2026-10-16', '18:00'],
 ])('holds unsupported/ambiguous date or time: %s', (text, date, time) => {
   expect(
     isArticleDeadlineGrounded(
@@ -378,4 +382,22 @@ test('a range cannot borrow a day from a later explicit numeric month', () => {
       { title: '', detailContent: text },
     ),
   ).toBe(false);
+});
+
+test('extraction drops duration-derived clocks while preserving an untimed deadline', async () => {
+  const evidence = '신청은 2026-10-16 마감. 처리에는 18시간이 소요됩니다.';
+  const untimed = {
+    ...deadline,
+    date: '2026-10-16',
+    time: null,
+    timeZone: null,
+    evidence,
+  };
+  mockOutput([{ ...untimed, time: '18:00' }, untimed]);
+  const result = await extractArticleDeadlines({
+    model,
+    article: { title: '신청 안내', detailContent: evidence },
+    outputLanguage: '한국어',
+  });
+  expect(result.deadlines).toEqual([untimed]);
 });

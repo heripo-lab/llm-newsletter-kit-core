@@ -174,7 +174,7 @@ function supportsTime(time: string, evidence: string): boolean {
       /(?<!\d)(\d{1,2}):(\d{2})(?::(\d{2}))?(?![\d:])\s*(?:(am|pm)\b)?/gi,
     ),
     ...evidence.matchAll(
-      /(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?(?:\s*(\d{1,2})\s*초)?/g,
+      /(?<!\d)(오전|오후)?\s*(\d{1,2})\s*시(?!\s*간)(?:\s*(\d{1,2})\s*분)?(?:\s*(\d{1,2})\s*초)?/g,
     ),
   ];
   return clocks.some((match) => {
