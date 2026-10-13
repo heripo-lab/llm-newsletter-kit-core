@@ -228,6 +228,14 @@ function sourceTimeZones(text: string): Set<string> {
   );
 }
 
+// Admit complete, unqualified declarations rather than matching their prefix.
+// Extra clauses (including event scopes) must not supply a missing deadline zone.
+const timeZoneDeclarationName = String.raw`(?:[A-Za-z]+(?:\/[A-Za-z0-9_+-]+(?:\/[A-Za-z0-9_+-]+)*|\s*[+−-]\d{1,2}(?::?\d{2})?)?|한국\s*(?:표준)?\s*(?:시간|시각)|대한민국\s*표준시|일본\s*(?:표준)?\s*(?:시간|시각))`;
+const commonTimeZoneDeclaration = new RegExp(
+  String.raw`^\s*(?:all\s+(?:(?:dates?|deadlines?)\s+and\s+)?(?:times?|deadlines?|schedules?)(?:\s+in\s+this\s+article)?(?:\s+(?:are\s+(?:in\s+)?|use\s+|follow\s+|in\s+)|\s*:\s*)${timeZoneDeclarationName}(?:\s+time)?|모든\s*(?:일정|날짜|시간|시각|마감|기한)(?:은|는|이|가)?\s*${timeZoneDeclarationName}\s*(?:기준(?:입니다|이다)?|입니다|이다)?)[.!?]?\s*$`,
+  'i',
+);
+
 function supportsTimeZone(
   timeZone: string,
   evidence: string,
@@ -243,18 +251,13 @@ function supportsTimeZone(
   const explicit = sourceTimeZones(evidence);
   if (explicit.size) return explicit.size === 1 && explicit.has(expected);
 
-  // Only an unqualified, article-wide declaration can supply an omitted zone.
-  // Require the declaration at the start of the sentence: a prefix such as
-  // 'Workshop:' scopes the claim to that event, even if it says 'all times'.
+  // Explicit evidence takes precedence; only complete common declarations
+  // can fill an omitted zone. Unknown or qualified wording stays ungrounded.
   const common = new Set(
     source
       .normalize('NFKC')
       .split(/\r?\n|(?<=[.!?])\s+/)
-      .filter((line) =>
-        /^\s*(?:all\s+(?:(?:dates?|deadlines?)\s+and\s+)?(?:times?|deadlines?|schedules?)\s+(?:are\b|use\b|follow\b|in\b|:)|모든\s*(?:일정|날짜|시간|시각|마감|기한))/i.test(
-          line,
-        ),
-      )
+      .filter((line) => commonTimeZoneDeclaration.test(line))
       .flatMap((line) => [...sourceTimeZones(line)]),
   );
   return common.size === 1 && common.has(expected);

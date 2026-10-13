@@ -467,30 +467,31 @@ test.each([
   'Workshop schedule — all deadlines use Asia/Seoul.',
   '워크숍: 모든 일정은 한국 표준 시간 기준입니다.',
   '워크숍 안내에서 모든 시각은 한국 시간 기준입니다.',
-])(
-  'rejects a prefixed, event-scoped common timezone: %s',
-  async (declaration) => {
-    const evidence = 'Registration closes 2026-11-13 at 18:00.';
-    const source = {
-      title: 'Registration',
-      detailContent: `${declaration}\n${evidence}`,
-    };
-    const wrong = { ...deadline, timeZone: 'Asia/Seoul', evidence };
-    const unzoned = { ...wrong, timeZone: null };
-    expect(isArticleDeadlineGrounded(wrong, source)).toBe(false);
-    expect(isArticleDeadlineGrounded(unzoned, source)).toBe(true);
-    mockOutput([wrong, unzoned]);
-    expect(
-      (
-        await extractArticleDeadlines({
-          model,
-          article: source,
-          outputLanguage: 'English',
-        })
-      ).deadlines,
-    ).toEqual([unzoned]);
-  },
-);
+  'All times are KST for the workshop.',
+  'All deadlines use Asia/Seoul only for workshop applications.',
+  '모든 일정은 한국 시간 기준이며 워크숍에만 적용됩니다.',
+  '모든 시간은 KST (워크숍 한정).',
+])('rejects an event-scoped common timezone: %s', async (declaration) => {
+  const evidence = 'Registration closes 2026-11-13 at 18:00.';
+  const source = {
+    title: 'Registration',
+    detailContent: `${declaration}\n${evidence}`,
+  };
+  const wrong = { ...deadline, timeZone: 'Asia/Seoul', evidence };
+  const unzoned = { ...wrong, timeZone: null };
+  expect(isArticleDeadlineGrounded(wrong, source)).toBe(false);
+  expect(isArticleDeadlineGrounded(unzoned, source)).toBe(true);
+  mockOutput([wrong, unzoned]);
+  expect(
+    (
+      await extractArticleDeadlines({
+        model,
+        article: source,
+        outputLanguage: 'English',
+      })
+    ).deadlines,
+  ).toEqual([unzoned]);
+});
 
 test.each([
   ['All times are KST.', 'Asia/Seoul'],
@@ -499,6 +500,10 @@ test.each([
   ['  모든 일정은 한국 표준 시간 기준입니다.  ', 'Asia/Seoul'],
   ['All dates and times in this article are in UTC.', 'Etc/UTC'],
   ['All deadlines use Europe/Paris.', 'Europe/Paris'],
+  ['All schedules follow Asia/Seoul.', 'Asia/Seoul'],
+  ['All times : KST.', 'Asia/Seoul'],
+  ['All times are in UTC time.', 'UTC'],
+  ['모든 시간은 KST 기준입니다.', 'Asia/Seoul'],
   ['모든 일정은 한국 표준 시간 기준입니다.', 'Asia/Seoul'],
   ['모든 시각은 일본 시간 기준입니다.', 'Asia/Tokyo'],
 ])(
