@@ -314,3 +314,68 @@ test('cache validation rejects malformed dates and unrelated timezone offsets', 
     ),
   ).toBe(false);
 });
+
+test.each([
+  ['9월 1일 오후 2시부터 4일 오후 6시까지 접수', '2026-09-04', '18:00'],
+  ['26. 10. 19.(월) ~ 21.(수) 접수', '2026-10-21', null],
+  ['신청기간: 9.28.(월) 10:00 ~ 10.13.(화) 23:30', '2026-10-13', '23:30'],
+])(
+  'grounds shared-month ranges using explicit source years rather than contact numbers: %s',
+  (text, date, time) => {
+    expect(
+      isArticleDeadlineGrounded(
+        { ...deadline, date, time, timeZone: null, evidence: text },
+        {
+          title: '2026년 신청 안내',
+          detailContent:
+            text + ' 문의 02-7398-4658, 044-2077-9298, kras1976@naver.com',
+        },
+      ),
+    ).toBe(true);
+  },
+);
+
+test('never uses an abbreviated range year or a different month to invent a deadline', () => {
+  const text = '25. 10. 19.(월) ~ 21.(수) 접수';
+  expect(
+    isArticleDeadlineGrounded(
+      {
+        ...deadline,
+        date: '2026-10-21',
+        time: null,
+        timeZone: null,
+        evidence: text,
+      },
+      { title: '2026 안내', detailContent: text },
+    ),
+  ).toBe(false);
+  const otherMonth = '2026년 9월 1일부터 10월 4일까지 접수';
+  expect(
+    isArticleDeadlineGrounded(
+      {
+        ...deadline,
+        date: '2026-09-04',
+        time: null,
+        timeZone: null,
+        evidence: otherMonth,
+      },
+      { title: '', detailContent: otherMonth },
+    ),
+  ).toBe(false);
+});
+
+test('a range cannot borrow a day from a later explicit numeric month', () => {
+  const text = '2026. 9. 1.부터 2026-10-04까지';
+  expect(
+    isArticleDeadlineGrounded(
+      {
+        ...deadline,
+        date: '2026-09-04',
+        time: null,
+        timeZone: null,
+        evidence: text,
+      },
+      { title: '', detailContent: text },
+    ),
+  ).toBe(false);
+});

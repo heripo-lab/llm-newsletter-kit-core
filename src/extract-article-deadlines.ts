@@ -126,6 +126,13 @@ const MONTHS = [
 const numberPattern = (value: number) =>
   value < 10 ? `0?${value}` : String(value);
 
+function explicitYears(text: string): string[] {
+  const cleaned = text
+    .replace(/\b[\w.+-]+@[\w.-]+\b/g, '')
+    .replace(/\b\d{2,4}-\d{3,4}(?:-\d{4})?\b/g, '');
+  return [...new Set(cleaned.match(/\b(?:19|20|21)\d{2}\b/g))];
+}
+
 function supportsDate(date: string, evidence: string, source: string): boolean {
   const [year, month, day] = date.split('-').map(Number);
   const m = numberPattern(month);
@@ -135,10 +142,8 @@ function supportsDate(date: string, evidence: string, source: string): boolean {
   );
   if (full.test(evidence)) return true;
   // A range endpoint may omit the year. Inherit only one explicit source year.
-  const excerptYears = [...new Set(evidence.match(/\b\d{4}\b/g))];
-  const years = excerptYears.length
-    ? excerptYears
-    : [...new Set(source.match(/\b\d{4}\b/g))];
+  const excerptYears = explicitYears(evidence);
+  const years = excerptYears.length ? excerptYears : explicitYears(source);
   if (years.length !== 1 || years[0] !== String(year)) return false;
   const numeric = new RegExp(
     `(?<!\\d)${m}\\s*(?:[-./]|월)\\s*${d}(?:\\s*일)?(?!\\d)`,
@@ -147,7 +152,18 @@ function supportsDate(date: string, evidence: string, source: string): boolean {
     `\\b(?:${MONTHS[month - 1]}\\.?\\s+${d}(?:st|nd|rd|th)?|${d}(?:st|nd|rd|th)?\\s+${MONTHS[month - 1]}\\.?)\\b`,
     'i',
   );
-  return numeric.test(evidence) || english.test(evidence);
+  const shortYears = [
+    ...evidence.matchAll(/(?<!\d)(\d{2})\s*[./-]\s*\d{1,2}\s*[./-]\s*\d{1,2}/g),
+  ].map((match) => Number(match[1]));
+  if (shortYears.some((short) => short !== year % 100)) return false;
+  const sharedMonth = new RegExp(
+    `(?<!\\d)${m}\\s*(?:[./-]|월)\\s*\\d{1,2}(?:\\s*[.일])?\\s*(?:\\([^)]*\\))?(?:(?!\\d+\\s*월|\\d{1,4}\\s*[./-]\\s*\\d{1,2}).)*?(?:~|부터|–|—|-)\\s*${d}(?:\\s*[.일])?(?!\\d)`,
+  );
+  return (
+    numeric.test(evidence) ||
+    english.test(evidence) ||
+    sharedMonth.test(evidence)
+  );
 }
 
 function supportsTime(time: string, evidence: string): boolean {
