@@ -124,7 +124,8 @@ export default class GenerateNewsletter<TaskId> extends BaseLLMQuery<
   ): Promise<LLMQueryExecuteResult<ReturnType>> {
     const recent = new Set(recentTitles.map(normalizeNewsletterTitle));
     const titleSchema = z.object({
-      title: z.string().min(20).max(70),
+      // Let recoverable length errors reach isValid() and the second rewrite.
+      title: z.string().describe('Rewritten email title (20-70 characters)'),
       isWrittenInOutputLanguage: z.boolean(),
       factAccuracy: z.boolean(),
     });
@@ -177,12 +178,13 @@ Report isWrittenInOutputLanguage and factAccuracy honestly.`,
         if (rewritten.finishReason === 'length') {
           throw new Error('Title output truncated.');
         }
-        const parsed = titleSchema.safeParse(rewritten.output);
-        if (!parsed.success) continue;
-        currentTitle = parsed.data.title;
+        // Output.object() has already validated the structure. Length and
+        // uniqueness remain recoverable checks within the two-rewrite budget.
+        const revised = rewritten.output;
+        currentTitle = revised.title;
         if (
-          parsed.data.isWrittenInOutputLanguage &&
-          parsed.data.factAccuracy &&
+          revised.isWrittenInOutputLanguage &&
+          revised.factAccuracy &&
           isValid(currentTitle)
         ) {
           return {
@@ -222,7 +224,16 @@ Report isWrittenInOutputLanguage and factAccuracy honestly.`,
       topK: this.topK,
       presencePenalty: this.presencePenalty,
       frequencyPenalty: this.frequencyPenalty,
-      schema: this.schema,
+      // Guarded mode validates title length after generation so the body can
+      // survive a title-only repair. Legacy callers retain the strict schema.
+      schema:
+        this.recentTitles === undefined
+          ? this.schema
+          : this.schema.extend({
+              title: z
+                .string()
+                .describe('Title of the newsletter email (20-70 characters)'),
+            }),
       instructions: this.systemPrompt + this.titleHistoryInstructions,
       prompt: this.userPrompt,
     });

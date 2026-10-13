@@ -395,6 +395,12 @@ of silently turning off the guard. Without the callback, existing generation and
 title-context retry behavior are unchanged; an empty returned array still enables
 guarded title validation.
 
+In guarded mode the SDK schemas accept string titles of any length, and the
+20-70 character requirement is enforced after generation. An invalid initial
+length therefore triggers title-only repair, and an invalid first rewrite can
+use the second attempt. Structural output errors remain failures. Without the
+history callback, the original strict SDK title-length schema is retained.
+
 ## Customizing LLM Prompts (PromptProvider)
 
 The kit ships with built-in prompts designed to cover a wide range of domains. However, these general-purpose prompts may not be flexible enough for specialized requirements. For example:
