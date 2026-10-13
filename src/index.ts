@@ -2,6 +2,7 @@ export type * from './generate-newsletter/models/article';
 export type * from './generate-newsletter/models/deadline';
 export {
   extractArticleDeadlines,
+  isArticleDeadlineGrounded,
   type ExtractArticleDeadlinesConfig,
   type ExtractArticleDeadlinesResult,
 } from './extract-article-deadlines';

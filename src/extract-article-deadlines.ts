@@ -100,22 +100,130 @@ Do not filter expired deadlines: the host decides eligibility using its publicat
     throw new Error('[ExtractArticleDeadlines] Output truncated.');
   }
 
-  const deadlines = schema.parse(output).deadlines.filter((deadline) => {
-    if (!source.includes(normalizeWhitespace(deadline.evidence))) return false;
-    if (deadline.status === 'active' && deadline.date === null) return false;
-    if (deadline.date !== null && !source.includes(deadline.date.slice(0, 4))) {
-      return false;
-    }
-    if (deadline.date === null && deadline.time !== null) return false;
-    if (deadline.timeZone !== null) {
-      try {
-        new Intl.DateTimeFormat('en', { timeZone: deadline.timeZone });
-      } catch {
-        return false;
-      }
-    }
-    return true;
-  });
+  const deadlines = schema
+    .parse(output)
+    .deadlines.filter((deadline) =>
+      isArticleDeadlineGrounded(deadline, article),
+    );
 
   return { deadlines, usage };
+}
+
+const MONTHS = [
+  'jan(?:uary)?',
+  'feb(?:ruary)?',
+  'mar(?:ch)?',
+  'apr(?:il)?',
+  'may',
+  'jun(?:e)?',
+  'jul(?:y)?',
+  'aug(?:ust)?',
+  'sep(?:tember)?',
+  'oct(?:ober)?',
+  'nov(?:ember)?',
+  'dec(?:ember)?',
+];
+const numberPattern = (value: number) =>
+  value < 10 ? `0?${value}` : String(value);
+
+function supportsDate(date: string, evidence: string, source: string): boolean {
+  const [year, month, day] = date.split('-').map(Number);
+  const m = numberPattern(month);
+  const d = numberPattern(day);
+  const full = new RegExp(
+    `(?<!\\d)${year}\\s*(?:[-./]|년)\\s*${m}\\s*(?:[-./]|월)\\s*${d}(?:\\s*일)?(?!\\d)`,
+  );
+  if (full.test(evidence)) return true;
+  // A range endpoint may omit the year. Inherit only one explicit source year.
+  const excerptYears = [...new Set(evidence.match(/\b\d{4}\b/g))];
+  const years = excerptYears.length
+    ? excerptYears
+    : [...new Set(source.match(/\b\d{4}\b/g))];
+  if (years.length !== 1 || years[0] !== String(year)) return false;
+  const numeric = new RegExp(
+    `(?<!\\d)${m}\\s*(?:[-./]|월)\\s*${d}(?:\\s*일)?(?!\\d)`,
+  );
+  const english = new RegExp(
+    `\\b(?:${MONTHS[month - 1]}\\.?\\s+${d}(?:st|nd|rd|th)?|${d}(?:st|nd|rd|th)?\\s+${MONTHS[month - 1]}\\.?)\\b`,
+    'i',
+  );
+  return numeric.test(evidence) || english.test(evidence);
+}
+
+function supportsTime(time: string, evidence: string): boolean {
+  const [hours, minutes, seconds = 0] = time.split(':').map(Number);
+  const expected = hours * 3600 + minutes * 60 + seconds;
+  const clocks = [
+    ...evidence.matchAll(
+      /(?<!\d)(\d{1,2}):(\d{2})(?::(\d{2}))?(?![\d:])\s*(?:(am|pm)\b)?/gi,
+    ),
+    ...evidence.matchAll(
+      /(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?(?:\s*(\d{1,2})\s*초)?/g,
+    ),
+  ];
+  return clocks.some((match) => {
+    const korean = match[0].includes('시');
+    const period = korean ? match[1] : match[4]?.toLowerCase();
+    let hour = Number(korean ? match[2] : match[1]);
+    const minute = Number((korean ? match[3] : match[2]) ?? 0);
+    const second = Number((korean ? match[4] : match[3]) ?? 0);
+    if (period) {
+      if (hour < 1 || hour > 12) return false;
+      hour = (hour % 12) + (['오후', 'pm'].includes(period) ? 12 : 0);
+    }
+    return (
+      hour < 24 &&
+      minute < 60 &&
+      second < 60 &&
+      hour * 3600 + minute * 60 + second === expected
+    );
+  });
+}
+
+/** Revalidate both newly extracted output and legacy caches against original text. */
+export function isArticleDeadlineGrounded(
+  deadline: ArticleDeadline,
+  article: Pick<UnscoredArticle, 'title' | 'detailContent'>,
+): boolean {
+  if (!schema.shape.deadlines.element.safeParse(deadline).success) return false;
+  const source = normalizeWhitespace(
+    `${article.title}\n${article.detailContent}`,
+  );
+  const evidence = normalizeWhitespace(deadline.evidence);
+  if (!source.includes(evidence)) return false;
+  if (deadline.status === 'active' && !deadline.date) return false;
+  if (deadline.date && !supportsDate(deadline.date, evidence, source))
+    return false;
+  if (
+    deadline.time &&
+    (!deadline.date || !supportsTime(deadline.time, evidence))
+  )
+    return false;
+  if (deadline.timeZone) {
+    try {
+      new Intl.DateTimeFormat('en', { timeZone: deadline.timeZone });
+    } catch {
+      return false;
+    }
+    const aliases: Record<string, string> = {
+      'Asia/Seoul': String.raw`\bKST\b|한국\s*(?:표준)?\s*(?:시간|시각)|대한민국\s*표준시`,
+      'Asia/Tokyo': String.raw`\bJST\b|일본\s*(?:표준)?\s*(?:시간|시각)`,
+      UTC: String.raw`\b(?:UTC|GMT)\b(?!\s*[+-])`,
+      'Etc/UTC': String.raw`\b(?:UTC|GMT)\b(?!\s*[+-])`,
+      GMT: String.raw`\b(?:UTC|GMT)\b(?!\s*[+-])`,
+      'Etc/GMT': String.raw`\b(?:UTC|GMT)\b(?!\s*[+-])`,
+    };
+    const escapedZone = deadline.timeZone.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      '\\$&',
+    );
+    if (
+      !new RegExp(`(?<![A-Za-z_/])${escapedZone}(?![A-Za-z_/]|\\s*[+-])`).test(
+        source,
+      ) &&
+      !new RegExp(aliases[deadline.timeZone] ?? '(?!)', 'i').test(source)
+    )
+      return false;
+  }
+  return true;
 }
