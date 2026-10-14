@@ -323,7 +323,10 @@ extraction inputs.
 
 Existing API names and the `deadlines` array are retained. Without `includeEvents`,
 the function returns only deadlines in the existing shape, even if a custom prompt
-returns events. Event entries in analysis caches are also excluded unless opted in.
+returns events. The flag controls new extraction, not deletion of stored data:
+analysis always preserves existing cache entries, including events, when the flag
+is disabled or re-enabled. Hosts that want to hide events must filter them during
+reminder selection or rendering, without overwriting the source cache.
 The public type and cache validator keep the new fields optional: an omitted `type`
 means `deadline`, and omitted end fields mean no known endpoint. The LLM response
 schema requires every field, using null for unknown endpoints, for strict

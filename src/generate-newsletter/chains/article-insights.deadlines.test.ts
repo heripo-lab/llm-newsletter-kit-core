@@ -153,15 +153,16 @@ test('analysis carries event type and period to persistence without altering its
 });
 
 test.each([false, true])(
-  'cached events require the same explicit opt-in: %s',
+  'cached events are preserved regardless of the extraction opt-in: %s',
   async (includeEvents) => {
     const event = { ...deadline, type: 'event' as const, kind: 'attendance' };
     const { chain } = buildChain({ includeEvents }, [
       { ...article, deadlines: [deadline, event] },
     ]);
-    expect((await chain.generateInsights())[0].deadlines).toEqual(
-      includeEvents ? [deadline, event] : [deadline],
-    );
+    expect((await chain.generateInsights())[0].deadlines).toEqual([
+      deadline,
+      event,
+    ]);
     expect(extractArticleDeadlines).not.toHaveBeenCalled();
   },
 );

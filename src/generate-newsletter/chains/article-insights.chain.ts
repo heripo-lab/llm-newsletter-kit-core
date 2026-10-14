@@ -159,16 +159,9 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
     const extractedArticles: ArticleForUpdateByAnalysis[] = [];
     for (const article of articles) {
       if (article.deadlines !== undefined) {
-        extractedArticles.push(
-          extractionOptions.includeEvents
-            ? article
-            : {
-                ...article,
-                deadlines: article.deadlines.filter(
-                  (item) => item.type !== 'event',
-                ),
-              },
-        );
+        // Analysis results are persisted by the host. Disabling new event
+        // extraction must never delete previously extracted event schedules.
+        extractedArticles.push(article);
         continue;
       }
       try {
