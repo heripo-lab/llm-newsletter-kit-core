@@ -69,8 +69,8 @@ export type UnscoredArticle = {
 
   /**
    * Cached extraction from this article's current source text. An empty array
-   * means extraction succeeded with no deadlines; undefined means not extracted.
-   * The host must clear this field when the source changes.
+   * means extraction succeeded with no deadlines or events; undefined means not extracted.
+   * The host must clear this field when the source or extraction rules change.
    */
   deadlines?: ArticleDeadline[];
 };

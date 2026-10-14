@@ -146,7 +146,7 @@ export interface AnalysisProvider {
   };
 
   /**
-   * Opt in to source-grounded deadline extraction during article analysis.
+   * Opt in to source-grounded deadline and event extraction during article analysis.
    * Omit to retain the existing analysis calls. An omitted model reuses the
    * importance model. Persistence and reminder eligibility belong to the host.
    */

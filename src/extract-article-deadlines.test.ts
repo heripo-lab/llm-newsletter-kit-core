@@ -541,3 +541,239 @@ test('an ambiguous abbreviation cannot be guessed as an IANA region timezone', (
     ),
   ).toBe(false);
 });
+
+test('extracts registration deadlines and conference periods as separate entries', async () => {
+  const registration = {
+    ...deadline,
+    type: 'deadline' as const,
+    endDate: null,
+    endTime: null,
+  };
+  const event = {
+    ...deadline,
+    type: 'event' as const,
+    title: 'Conference',
+    kind: 'attendance',
+    date: '2026-11-21',
+    time: null,
+    timeZone: null,
+    endDate: '2026-11-22',
+    endTime: null,
+    evidence: 'Conference runs November 21 to November 22, 2026.',
+  };
+  mockOutput([registration, event]);
+  const result = await extractArticleDeadlines({
+    model,
+    article: {
+      title: 'Conference',
+      detailContent: `${registration.evidence}\n${event.evidence}`,
+    },
+    outputLanguage: 'English',
+  });
+  expect(result.deadlines).toEqual([registration, event]);
+  expect(vi.mocked(generateText).mock.calls[0][0].instructions).toContain(
+    'public site visits',
+  );
+});
+
+test('preserves a public site visit opening and closing time', async () => {
+  const event = {
+    ...deadline,
+    type: 'event' as const,
+    title: '발굴 현장 공개',
+    kind: '현장 공개',
+    date: '2026-11-13',
+    time: '10:00',
+    endDate: '2026-11-13',
+    endTime: '16:00',
+    timeZone: null,
+    evidence:
+      '발굴 현장은 2026년 11월 13일 오전 10시부터 오후 4시까지 공개합니다.',
+  };
+  mockOutput([event]);
+  expect(
+    (
+      await extractArticleDeadlines({
+        model,
+        article: { title: event.title, detailContent: event.evidence },
+        outputLanguage: '한국어',
+      })
+    ).deadlines,
+  ).toEqual([event]);
+});
+
+test('accepts event ranges with a shared month and no invented clocks', () => {
+  const evidence = '학술대회는 2026년 11월 5일부터 6일까지 개최합니다.';
+  expect(
+    isArticleDeadlineGrounded(
+      {
+        ...deadline,
+        type: 'event',
+        date: '2026-11-05',
+        time: null,
+        timeZone: null,
+        endDate: '2026-11-06',
+        endTime: null,
+        evidence,
+      },
+      { title: '', detailContent: evidence },
+    ),
+  ).toBe(true);
+});
+
+test('accepts an event with an unknown endpoint and an explicitly undated cancellation', async () => {
+  const event = {
+    ...deadline,
+    type: 'event' as const,
+    kind: 'attendance',
+    endDate: null,
+    endTime: null,
+    evidence: 'Conference starts 2026-11-13 at 18:00 Asia/Seoul.',
+  };
+  const cancelled = {
+    ...event,
+    date: null,
+    time: null,
+    timeZone: null,
+    status: 'cancelled' as const,
+    evidence: 'The conference is cancelled.',
+  };
+  mockOutput([event, cancelled]);
+  expect(
+    (
+      await extractArticleDeadlines({
+        model,
+        article: {
+          title: 'Conference',
+          detailContent: `${event.evidence}\n${cancelled.evidence}`,
+        },
+        outputLanguage: 'English',
+      })
+    ).deadlines,
+  ).toEqual([event, cancelled]);
+});
+
+test.each([
+  ['a legacy deadline with a period', { type: undefined }],
+  ['an explicit deadline with a period', { type: 'deadline' as const }],
+  [
+    'an endpoint without a start',
+    { date: null, time: null, status: 'cancelled' as const },
+  ],
+  ['an end clock without an end date', { endDate: null }],
+  ['an end date preceding the start', { endDate: '2026-11-12' }],
+  ['an unsupported end date', { endDate: '2026-11-14' }],
+  ['an unsupported end time', { endTime: '17:00' }],
+  ['an end clock preceding the start', { time: '16:00', endTime: '10:00' }],
+])('rejects an invalid event period: %s', (_, fields) => {
+  const evidence = 'Public site visit: 2026-11-13 from 10:00 to 16:00.';
+  expect(
+    isArticleDeadlineGrounded(
+      {
+        ...deadline,
+        type: 'event',
+        date: '2026-11-13',
+        time: '10:00',
+        timeZone: null,
+        endDate: '2026-11-13',
+        endTime: '16:00',
+        evidence,
+        ...fields,
+      },
+      { title: '', detailContent: evidence },
+    ),
+  ).toBe(false);
+});
+
+test.each([
+  ['Conference: November 21–22, 2026.', '2026-11-21', '2026-11-22', true],
+  [
+    'Conference: November 21 to December 22, 2026.',
+    '2026-11-21',
+    '2026-11-22',
+    false,
+  ],
+])(
+  'grounds English shared-month event ranges without borrowing another month: %s',
+  (evidence, date, endDate, expected) => {
+    expect(
+      isArticleDeadlineGrounded(
+        {
+          ...deadline,
+          type: 'event',
+          date,
+          endDate,
+          time: null,
+          endTime: null,
+          timeZone: null,
+          evidence,
+        },
+        { title: '', detailContent: evidence },
+      ),
+    ).toBe(expected);
+  },
+);
+
+test.each([
+  ['All times are KST.', true],
+  ['All deadlines use Asia/Seoul.', false],
+  ['모든 마감은 한국 시간 기준입니다.', false],
+])(
+  'does not borrow a deadline-only timezone declaration for an event: %s',
+  (declaration, expected) => {
+    const evidence = 'Conference starts 2026-11-13 at 18:00.';
+    expect(
+      isArticleDeadlineGrounded(
+        {
+          ...deadline,
+          type: 'event',
+          evidence,
+        },
+        { title: '', detailContent: `${declaration}\n${evidence}` },
+      ),
+    ).toBe(expected);
+  },
+);
+
+test('accepts chronological event clocks with explicit second precision', () => {
+  const evidence = 'Public site visit: 2026-11-13 from 10:00:30 to 16:00:30.';
+  expect(
+    isArticleDeadlineGrounded(
+      {
+        ...deadline,
+        type: 'event',
+        time: '10:00:30',
+        endDate: '2026-11-13',
+        endTime: '16:00:30',
+        timeZone: null,
+        evidence,
+      },
+      { title: '', detailContent: evidence },
+    ),
+  ).toBe(true);
+});
+
+test.each([
+  ['2026-11-13', null, '2026-11-13'],
+  ['2026-11-13', '10:00', '2026-11-14'],
+])(
+  'keeps a grounded end time with an unknown start clock or a later end date',
+  (date, time, endDate) => {
+    const evidence = `Conference: ${date} ${time ?? ''} to ${endDate} 16:00.`;
+    expect(
+      isArticleDeadlineGrounded(
+        {
+          ...deadline,
+          type: 'event',
+          date,
+          time,
+          endDate,
+          endTime: '16:00',
+          timeZone: null,
+          evidence,
+        },
+        { title: '', detailContent: evidence },
+      ),
+    ).toBe(true);
+  },
+);

@@ -1,18 +1,24 @@
 import type { IsoDateString } from '~/models/common';
 
-/** An action deadline grounded in the original article, not a generated issue. */
+/** A deadline or event schedule grounded in the original article. */
 export type ArticleDeadline = {
-  /** Name of the opportunity or application. */
+  /** Missing in legacy caches; hosts must interpret an omitted type as deadline. */
+  type?: 'deadline' | 'event';
+  /** Name of the opportunity, application, or event. */
   title: string;
-  /** Distinguishes deadlines such as abstract submission and registration. */
+  /** Distinguishes actions such as submission, registration, and event attendance. */
   kind: string;
-  /** YYYY-MM-DD, or null for an explicit cancellation without a known date. */
+  /** Closing date for deadlines, start date for events; null for undated cancellations. */
   date: IsoDateString | null;
   /** Source-local HH:mm or HH:mm:ss. Null when the source gives no time. */
   time: string | null;
+  /** Optional last date of an event, including single-day events with an end time. */
+  endDate?: IsoDateString | null;
+  /** Source-local event end time. Requires an explicit endDate. */
+  endTime?: string | null;
   /** IANA time zone only when explicitly identifiable in the source. */
   timeZone: string | null;
   status: 'active' | 'cancelled';
-  /** Verbatim source excerpt supporting the deadline or cancellation. */
+  /** Verbatim source excerpt supporting the deadline, event period, or cancellation. */
   evidence: string;
 };

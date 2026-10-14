@@ -132,3 +132,21 @@ test('a failed extraction does not erase scoring, mark empty success, or stop la
     expect.objectContaining({ event: 'insights.deadlines.extract.failed' }),
   );
 });
+
+test('analysis carries event type and period to persistence without altering its score', async () => {
+  const event = {
+    ...deadline,
+    type: 'event' as const,
+    kind: 'attendance',
+    endDate: '2026-11-14',
+    endTime: '16:00',
+  };
+  vi.mocked(extractArticleDeadlines).mockResolvedValue({
+    deadlines: [event],
+    usage: undefined,
+  });
+  const { chain } = buildChain({});
+  expect(await chain.generateInsights()).toEqual([
+    { ...article, importanceScore: 7, deadlines: [event] },
+  ]);
+});
