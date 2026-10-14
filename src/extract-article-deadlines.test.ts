@@ -27,7 +27,14 @@ const usage = { inputTokens: 50, outputTokens: 20, totalTokens: 70 };
 
 function mockOutput(deadlines: unknown[], finishReason = 'stop') {
   vi.mocked(generateText).mockResolvedValueOnce({
-    output: { deadlines },
+    output: {
+      deadlines: deadlines.map((item) => ({
+        type: 'deadline',
+        endDate: null,
+        endTime: null,
+        ...(item as object),
+      })),
+    },
     usage,
     finishReason,
   } as never);
@@ -569,6 +576,7 @@ test('extracts registration deadlines and conference periods as separate entries
       detailContent: `${registration.evidence}\n${event.evidence}`,
     },
     outputLanguage: 'English',
+    includeEvents: true,
   });
   expect(result.deadlines).toEqual([registration, event]);
   expect(vi.mocked(generateText).mock.calls[0][0].instructions).toContain(
@@ -597,6 +605,7 @@ test('preserves a public site visit opening and closing time', async () => {
         model,
         article: { title: event.title, detailContent: event.evidence },
         outputLanguage: '한국어',
+        includeEvents: true,
       })
     ).deadlines,
   ).toEqual([event]);
@@ -648,6 +657,7 @@ test('accepts an event with an unknown endpoint and an explicitly undated cancel
           detailContent: `${event.evidence}\n${cancelled.evidence}`,
         },
         outputLanguage: 'English',
+        includeEvents: true,
       })
     ).deadlines,
   ).toEqual([event, cancelled]);
@@ -775,5 +785,50 @@ test.each([
         { title: '', detailContent: evidence },
       ),
     ).toBe(true);
+  },
+);
+
+test('default extraction excludes events even when a custom prompt returns them', async () => {
+  const event = {
+    ...deadline,
+    type: 'event',
+    date: '2026-11-21',
+    time: null,
+    timeZone: null,
+    endDate: null,
+    endTime: null,
+    evidence: 'Conference starts 2026-11-21.',
+  };
+  mockOutput([deadline, event]);
+  const result = await extractArticleDeadlines({
+    model,
+    article: {
+      title: 'Conference',
+      detailContent: `${deadline.evidence}\n${event.evidence}`,
+    },
+    outputLanguage: 'English',
+    promptBuilder: { system: () => 'Extract everything' },
+  });
+  expect(result.deadlines).toEqual([deadline]);
+});
+
+test.each([
+  ['All deadlines and schedules are KST.', true],
+  ['모든 마감과 일정은 한국 시간 기준입니다.', true],
+  ['All deadlines and schedules are KST for the workshop.', false],
+])(
+  'checks the whole common timezone subject and declaration: %s',
+  (declaration, expected) => {
+    const evidence = 'Conference starts 2026-11-13 at 18:00.';
+    expect(
+      isArticleDeadlineGrounded(
+        {
+          ...deadline,
+          type: 'event',
+          evidence,
+        },
+        { title: '', detailContent: `${declaration}\n${evidence}` },
+      ),
+    ).toBe(expected);
   },
 );

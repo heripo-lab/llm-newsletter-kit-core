@@ -152,6 +152,8 @@ export interface AnalysisProvider {
    */
   extractDeadlineOptions?: {
     model?: LanguageModel;
+    /** Include event schedules only after the host supports their storage and rendering. */
+    includeEvents?: boolean;
   };
 
   /**

@@ -305,9 +305,10 @@ The core sets the subject to `[Preview] <title>`, uses `htmlBody` for HTML, and 
 ## Optional Source Deadline and Event Extraction
 
 Set `analysisProvider.extractDeadlineOptions = {}` to extract action deadlines
-and event schedules after article insights. This reuses the importance model; supply `{ model }` to
-use a separate model. The option is off by default and leaves existing analysis
-calls and score behavior unchanged.
+after article insights. Set `{ includeEvents: true }` to also extract event
+schedules, only after the host supports their storage and rendering. This reuses
+the importance model; supply `{ model }` to use a separate model. The option is
+off by default and leaves existing analysis calls and score behavior unchanged.
 
 `AnalysisProvider.update(article)` receives optional `article.deadlines` entries
 with `type` (`deadline` or `event`), `title`, `kind`, ISO `date`, source-local
@@ -320,11 +321,17 @@ announcement, and application opening dates are excluded. Explicit cancellations
 can have a null date. Image descriptions and generated newsletter text are not
 extraction inputs.
 
-Existing API names and the `deadlines` array are retained. The new fields are
-optional for compatibility with existing callers and caches: an omitted `type`
-means `deadline`, and omitted end fields mean no known endpoint. Hosts must update
-storage, reminder selection, and rendering to support events before consuming the
-expanded output. Custom extraction prompts must explicitly request event schedules.
+Existing API names and the `deadlines` array are retained. Without `includeEvents`,
+the function returns only deadlines in the existing shape, even if a custom prompt
+returns events. Event entries in analysis caches are also excluded unless opted in.
+The public type and cache validator keep the new fields optional: an omitted `type`
+means `deadline`, and omitted end fields mean no known endpoint. The LLM response
+schema requires every field, using null for unknown endpoints, for strict
+structured-output providers such as OpenAI.
+
+Before enabling `includeEvents`, update host storage, reminder selection, and
+rendering. Custom extraction prompts must explicitly request event schedules;
+the prompt context exposes `includeEvents: true` when enabled.
 
 An empty array means extraction succeeded without supported deadlines or events.
 Undefined means extraction has not succeeded. The pipeline logs an extraction failure and
@@ -368,9 +375,9 @@ Only the host knows which articles appeared in the final published issue:
 `usedArticles` still contains all generation candidates, including omitted ones.
 
 Customize extraction using `promptProvider.analysis.extractDeadlines` or the
-standalone function's `promptBuilder`. Each receives only the original title and
-body plus the requested output language. Replacing prompts retains schema and
-grounding validation; preserve the source-only and no-guessed-date rules.
+standalone function's `promptBuilder`. Each receives the original title and
+body, the requested output language, and the optional event opt-in flag. Replacing
+prompts retains schema and grounding validation; preserve the source-only and no-guessed-date rules.
 
 ## Optional Recent-Title Guard
 

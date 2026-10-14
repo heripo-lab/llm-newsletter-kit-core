@@ -35,7 +35,7 @@ const deadline = {
 };
 
 function buildChain(
-  extractionOptions?: { model?: LanguageModel },
+  extractionOptions?: { model?: LanguageModel; includeEvents?: boolean },
   articles: UnscoredArticle[] = [article],
 ) {
   const logger = { debug: vi.fn(), info: vi.fn(), error: vi.fn() };
@@ -95,6 +95,7 @@ test('configured extraction uses raw article, its model and prompt, and carries 
     article: { ...article, importanceScore: 7 },
     outputLanguage: '한국어',
     maxRetries: 2,
+    includeEvents: undefined,
     promptBuilder,
   });
 });
@@ -145,8 +146,22 @@ test('analysis carries event type and period to persistence without altering its
     deadlines: [event],
     usage: undefined,
   });
-  const { chain } = buildChain({});
+  const { chain } = buildChain({ includeEvents: true });
   expect(await chain.generateInsights()).toEqual([
     { ...article, importanceScore: 7, deadlines: [event] },
   ]);
 });
+
+test.each([false, true])(
+  'cached events require the same explicit opt-in: %s',
+  async (includeEvents) => {
+    const event = { ...deadline, type: 'event' as const, kind: 'attendance' };
+    const { chain } = buildChain({ includeEvents }, [
+      { ...article, deadlines: [deadline, event] },
+    ]);
+    expect((await chain.generateInsights())[0].deadlines).toEqual(
+      includeEvents ? [deadline, event] : [deadline],
+    );
+    expect(extractArticleDeadlines).not.toHaveBeenCalled();
+  },
+);

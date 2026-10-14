@@ -159,7 +159,16 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
     const extractedArticles: ArticleForUpdateByAnalysis[] = [];
     for (const article of articles) {
       if (article.deadlines !== undefined) {
-        extractedArticles.push(article);
+        extractedArticles.push(
+          extractionOptions.includeEvents
+            ? article
+            : {
+                ...article,
+                deadlines: article.deadlines.filter(
+                  (item) => item.type !== 'event',
+                ),
+              },
+        );
         continue;
       }
       try {
@@ -181,6 +190,7 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
               article,
               outputLanguage: this.options.content.outputLanguage,
               maxRetries: this.options.llm.maxRetries,
+              includeEvents: extractionOptions.includeEvents,
               promptBuilder: this.promptProvider?.extractDeadlines,
             }),
         );
