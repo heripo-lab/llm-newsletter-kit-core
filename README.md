@@ -302,24 +302,47 @@ function configurePreview(emailService: EmailService) {
 
 The core sets the subject to `[Preview] <title>`, uses `htmlBody` for HTML, and builds a short plain-text issue summary. It skips preview when the result is `null`; fetch/send failures are logged without changing the saved ID returned by `generate()`. This option sends review copies, not a subscriber campaign.
 
-## Optional Source Deadline Extraction
+## Optional Source Deadline and Event Extraction
 
 Set `analysisProvider.extractDeadlineOptions = {}` to extract action deadlines
-after article insights. This reuses the importance model; supply `{ model }` to
-use a separate model. The option is off by default and leaves existing analysis
-calls and score behavior unchanged.
+after article insights. Set `{ includeEvents: true }` to also extract event
+schedules, only after the host supports their storage and rendering. This reuses
+the importance model; supply `{ model }` to use a separate model. The option is
+off by default and leaves existing analysis calls and score behavior unchanged.
 
 `AnalysisProvider.update(article)` receives optional `article.deadlines` entries
-with `title`, `kind`, ISO `date`, source-local `time`, explicit `timeZone`,
-`status`, and a source `evidence` excerpt. Multiple application deadlines are
-kept separately. Unknown times stay null; explicit cancellations can have a null
-date. Image descriptions and generated newsletter text are not extraction inputs.
+with `type` (`deadline` or `event`), `title`, `kind`, ISO `date`, source-local
+`time`, explicit `timeZone`, `status`, and a source `evidence` excerpt. A deadline's
+`date`/`time` describe its cutoff; an event's describe its start. Optional event
+`endDate`/`endTime` preserve a stated end, including the same date for a single-day
+event with an end time. Missing times or endpoints are not invented.
+Conference registration and conference attendance are separate entries. Publication,
+announcement, and application opening dates are excluded. Explicit cancellations
+can have a null date. Image descriptions and generated newsletter text are not
+extraction inputs.
 
-An empty array means extraction succeeded without supported deadlines. Undefined
-means extraction has not succeeded. The pipeline logs an extraction failure and
+Existing API names and the `deadlines` array are retained. Without `includeEvents`,
+the function returns only deadlines in the existing shape, even if a custom prompt
+returns events. The flag controls new extraction, not deletion of stored data:
+analysis always preserves existing cache entries, including events, when the flag
+is disabled or re-enabled. Hosts that want to hide events must filter them during
+reminder selection or rendering, without overwriting the source cache.
+The public type and cache validator keep the new fields optional: an omitted `type`
+means `deadline`, and omitted end fields mean no known endpoint. The LLM response
+schema requires every field, using null for unknown endpoints, for strict
+structured-output providers such as OpenAI.
+
+Before enabling `includeEvents`, update host storage, reminder selection, and
+rendering. Custom extraction prompts must explicitly request event schedules;
+the prompt context exposes `includeEvents: true` when enabled.
+
+An empty array means extraction succeeded without supported deadlines or events.
+Undefined means extraction has not succeeded. The pipeline logs an extraction failure and
 keeps the score; the host must include unfinished extractions in future analysis
 selection if it wants to retry them. Persisted deadline arrays are reused, so
-clear them when the source text changes.
+clear them when the source text changes. After upgrading from deadline-only
+extraction, re-extract historical articles (including cached empty arrays) to
+collect their event schedules; the core does not invalidate host caches automatically.
 
 The same public function can be used without crawling or generating an issue:
 
@@ -341,8 +364,11 @@ The function validates calendar dates and matches the extracted date and time
 against the verbatim evidence (ISO/numeric, Korean and English dates; colon,
 AM/PM and Korean clocks). A year omitted at a range endpoint is inherited only
 when the excerpt or source has one explicit year. Unsupported or ambiguous
-values are held. A timezone must match the deadline's evidence. An explicit article-wide common
-timezone may supply an omitted zone; a different event's timezone cannot.
+values are held. Event endpoints must be grounded, chronologically ordered, and
+cannot be attached to a deadline. A timezone must match the entry's evidence. An
+explicit article-wide common timezone may supply an omitted zone; a different
+event's timezone cannot. A deadline-only timezone declaration cannot supply an
+event's timezone.
 `isArticleDeadlineGrounded(deadline, article)` exposes the same validation for
 host-managed legacy caches without an LLM call.
 Source grounding does not guarantee the model extracted every fact correctly;
@@ -352,9 +378,9 @@ Only the host knows which articles appeared in the final published issue:
 `usedArticles` still contains all generation candidates, including omitted ones.
 
 Customize extraction using `promptProvider.analysis.extractDeadlines` or the
-standalone function's `promptBuilder`. Each receives only the original title and
-body plus the requested output language. Replacing prompts retains schema and
-grounding validation; preserve the source-only and no-guessed-date rules.
+standalone function's `promptBuilder`. Each receives the original title and
+body, the requested output language, and the optional event opt-in flag. Replacing
+prompts retains schema and grounding validation; preserve the source-only and no-guessed-date rules.
 
 ## Optional Recent-Title Guard
 

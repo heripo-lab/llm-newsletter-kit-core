@@ -35,7 +35,7 @@ const deadline = {
 };
 
 function buildChain(
-  extractionOptions?: { model?: LanguageModel },
+  extractionOptions?: { model?: LanguageModel; includeEvents?: boolean },
   articles: UnscoredArticle[] = [article],
 ) {
   const logger = { debug: vi.fn(), info: vi.fn(), error: vi.fn() };
@@ -95,6 +95,7 @@ test('configured extraction uses raw article, its model and prompt, and carries 
     article: { ...article, importanceScore: 7 },
     outputLanguage: '한국어',
     maxRetries: 2,
+    includeEvents: undefined,
     promptBuilder,
   });
 });
@@ -132,3 +133,36 @@ test('a failed extraction does not erase scoring, mark empty success, or stop la
     expect.objectContaining({ event: 'insights.deadlines.extract.failed' }),
   );
 });
+
+test('analysis carries event type and period to persistence without altering its score', async () => {
+  const event = {
+    ...deadline,
+    type: 'event' as const,
+    kind: 'attendance',
+    endDate: '2026-11-14',
+    endTime: '16:00',
+  };
+  vi.mocked(extractArticleDeadlines).mockResolvedValue({
+    deadlines: [event],
+    usage: undefined,
+  });
+  const { chain } = buildChain({ includeEvents: true });
+  expect(await chain.generateInsights()).toEqual([
+    { ...article, importanceScore: 7, deadlines: [event] },
+  ]);
+});
+
+test.each([false, true])(
+  'cached events are preserved regardless of the extraction opt-in: %s',
+  async (includeEvents) => {
+    const event = { ...deadline, type: 'event' as const, kind: 'attendance' };
+    const { chain } = buildChain({ includeEvents }, [
+      { ...article, deadlines: [deadline, event] },
+    ]);
+    expect((await chain.generateInsights())[0].deadlines).toEqual([
+      deadline,
+      event,
+    ]);
+    expect(extractArticleDeadlines).not.toHaveBeenCalled();
+  },
+);

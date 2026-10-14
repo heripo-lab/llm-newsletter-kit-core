@@ -39,6 +39,8 @@ export type DetermineImportancePromptContext = {
 
 export type ExtractDeadlinesPromptContext = {
   outputLanguage: string;
+  /** True only when event schedules are explicitly enabled by the host. */
+  includeEvents?: boolean;
   targetArticle: Pick<UnscoredArticle, 'title' | 'detailContent'>;
 };
 

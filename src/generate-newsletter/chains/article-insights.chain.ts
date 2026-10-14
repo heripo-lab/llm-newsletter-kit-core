@@ -159,6 +159,8 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
     const extractedArticles: ArticleForUpdateByAnalysis[] = [];
     for (const article of articles) {
       if (article.deadlines !== undefined) {
+        // Analysis results are persisted by the host. Disabling new event
+        // extraction must never delete previously extracted event schedules.
         extractedArticles.push(article);
         continue;
       }
@@ -181,6 +183,7 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
               article,
               outputLanguage: this.options.content.outputLanguage,
               maxRetries: this.options.llm.maxRetries,
+              includeEvents: extractionOptions.includeEvents,
               promptBuilder: this.promptProvider?.extractDeadlines,
             }),
         );
