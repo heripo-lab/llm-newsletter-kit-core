@@ -6,6 +6,19 @@ import {
   sniffImageMediaType,
 } from './image-attachments';
 
+// Every host resolves to a public address unless listed here, so no test
+// depends on real DNS.
+const RESOLVED: Record<string, string[]> = {
+  'internal.example.com': ['93.184.216.34', '10.0.0.5'],
+};
+vi.mock('node:dns/promises', () => ({
+  lookup: async (hostname: string) =>
+    (RESOLVED[hostname] ?? ['93.184.216.34']).map((address) => ({
+      address,
+      family: address.includes(':') ? 6 : 4,
+    })),
+}));
+
 const BASE_URL = 'https://board.example.com/notice/list?page=1';
 
 function bytes(head: number[], size = 8_192): Uint8Array {
@@ -237,7 +250,8 @@ describe('loadImageAttachments', () => {
 
     const [url, init] = (customFetch.mock.calls as any[])[0];
     expect(url).toBe('https://board.example.com/upload/a.jpg');
-    expect(init.redirect).toBe('follow');
+    // Redirects are followed by the loader, which checks each destination.
+    expect(init.redirect).toBe('manual');
     expect(init.signal).toBeInstanceOf(AbortSignal);
     expect(init.headers.Referer).toBe(BASE_URL);
     expect(init.headers['User-Agent']).toMatch(/^Mozilla\/5\.0/);
@@ -406,7 +420,30 @@ describe('loadImageAttachments', () => {
     );
   });
 
-  test('deduplicates URLs, tries at most ten and sends at most five', async () => {
+  test('measures data URIs before decoding them, padding included', async () => {
+    const logger = makeLogger();
+    // 5000002 bytes encode with "==" padding.
+    const padded = Buffer.from(png(10, 10, 5_000_002)).toString('base64');
+    expect(padded.endsWith('==')).toBe(true);
+    // 5000003 bytes encode with a single "=".
+    const single = Buffer.from(png(10, 10, 5_000_003)).toString('base64');
+    expect(single.endsWith('=') && !single.endsWith('==')).toBe(true);
+
+    await loadImageAttachments({
+      references: [
+        `data:image/png;base64,${padded}`,
+        `data:image/png;base64,${single}`,
+      ],
+      baseUrl: BASE_URL,
+      logger,
+    });
+
+    expect(
+      logger.debug.mock.calls.map(([entry]: any[]) => entry.data.reason),
+    ).toEqual(['too large (5000002 bytes)', 'too large (5000003 bytes)']);
+  });
+
+  test('stops downloading once five usable images are in hand', async () => {
     const customFetch = vi.fn(async () => imageResponse(png(10, 10)));
     const references = [
       'https://a.com/0.png',
@@ -421,8 +458,135 @@ describe('loadImageAttachments', () => {
       logger: makeLogger(),
     });
 
-    expect(customFetch).toHaveBeenCalledTimes(10);
+    // Deduplicated, and the candidates after the first five never requested
+    expect(customFetch.mock.calls.map(([url]: any[]) => url)).toEqual(
+      [0, 1, 2, 3, 4].map((i) => `https://a.com/${i}.png`),
+    );
     expect(result).toHaveLength(5);
+  });
+
+  test('tries later candidates for failed ones, up to ten in all', async () => {
+    const customFetch = vi.fn(async (url: string) =>
+      /\/[0-3]\.png$/.test(url)
+        ? new Response('', { status: 404 })
+        : imageResponse(png(10, 10)),
+    );
+    const many = Array.from({ length: 12 }, (_, i) => `https://a.com/${i}.png`);
+
+    const result = await loadImageAttachments({
+      references: many,
+      baseUrl: BASE_URL,
+      customFetch: customFetch as any,
+      logger: makeLogger(),
+    });
+
+    // 0-4 first, four failed, so 5-8 next, and the fifth image fills it
+    expect(customFetch).toHaveBeenCalledTimes(9);
+    expect(result).toHaveLength(5);
+
+    const allFail = vi.fn(async () => new Response('', { status: 404 }));
+    await loadImageAttachments({
+      references: many,
+      baseUrl: BASE_URL,
+      customFetch: allFail as any,
+      logger: makeLogger(),
+    });
+    expect(allFail).toHaveBeenCalledTimes(10);
+  });
+
+  test('never requests internal addresses, directly or after a redirect', async () => {
+    const logger = makeLogger();
+    const requested: string[] = [];
+    const customFetch = vi.fn(async (url: string) => {
+      requested.push(url);
+      if (url === 'https://a.com/hop.png') {
+        return new Response(null, {
+          status: 302,
+          headers: { location: 'http://169.254.169.254/latest/meta-data/' },
+        });
+      }
+      return imageResponse(png(10, 10));
+    });
+
+    const result = await loadImageAttachments({
+      references: [
+        'http://169.254.169.254/latest/meta-data/',
+        'http://127.0.0.1:3000/internal',
+        'http://[::1]/x.png',
+        'http://localhost/x.png',
+        'https://internal.example.com/x.png',
+        'https://a.com/hop.png',
+      ],
+      baseUrl: BASE_URL,
+      customFetch: customFetch as any,
+      logger,
+    });
+
+    expect(result).toEqual([]);
+    expect(requested).toEqual(['https://a.com/hop.png']);
+    expect(
+      logger.debug.mock.calls.map(([entry]: any[]) => entry.data.reason),
+    ).toEqual([
+      'blocked address (169.254.169.254)',
+      'blocked address (127.0.0.1)',
+      'blocked address (::1)',
+      'blocked host (localhost)',
+      'blocked address (10.0.0.5)',
+      'blocked address (169.254.169.254)',
+    ]);
+  });
+
+  test('follows public redirects and gives up after five', async () => {
+    const hops = vi.fn(async (url: string) => {
+      const n = Number(/(\d+)\.png$/.exec(url)![1]);
+      return n < 3
+        ? new Response(null, {
+            status: 301,
+            headers: { location: `/${n + 1}.png` },
+          })
+        : imageResponse(png(10, 10));
+    });
+
+    const result = await loadImageAttachments({
+      references: ['https://a.com/0.png'],
+      baseUrl: BASE_URL,
+      customFetch: hops as any,
+      logger: makeLogger(),
+    });
+    expect(result).toHaveLength(1);
+    expect(hops.mock.calls.map(([url]: any[]) => url)).toEqual([
+      'https://a.com/0.png',
+      'https://a.com/1.png',
+      'https://a.com/2.png',
+      'https://a.com/3.png',
+    ]);
+
+    const logger = makeLogger();
+    const loop = vi.fn(
+      async () =>
+        new Response(null, { status: 302, headers: { location: '/again' } }),
+    );
+    await loadImageAttachments({
+      references: ['https://a.com/start.png'],
+      baseUrl: BASE_URL,
+      customFetch: loop as any,
+      logger,
+    });
+    expect(loop).toHaveBeenCalledTimes(6);
+    expect(logger.debug.mock.calls[0][0].data.reason).toBe(
+      'too many redirects',
+    );
+
+    // A redirect without a Location is an ordinary failed response.
+    const bare = vi.fn(async () => new Response(null, { status: 302 }));
+    const bareLogger = makeLogger();
+    await loadImageAttachments({
+      references: ['https://a.com/x.png'],
+      baseUrl: BASE_URL,
+      customFetch: bare as any,
+      logger: bareLogger,
+    });
+    expect(bareLogger.debug.mock.calls[0][0].data.reason).toBe('status 302');
   });
 
   test('times out a download even when the fetch ignores the abort signal', async () => {

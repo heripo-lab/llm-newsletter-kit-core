@@ -1,6 +1,7 @@
 import type { AppLogger } from '~/models/interfaces';
 
 import { getRandomUserAgent } from './get-html-from-url';
+import { type HostLookup, assertPublicUrl } from './public-address';
 
 export type ImageAttachment = {
   data: Uint8Array;
@@ -21,6 +22,8 @@ type LoadImageAttachmentsParams = {
   baseUrl: string;
   customFetch?: typeof fetch;
   logger: AppLogger;
+  /** Resolves image hosts before they are requested. Replaced in tests. */
+  lookupHost?: HostLookup;
 };
 
 /** Images sent to the model per article (to save cost). */
@@ -49,6 +52,11 @@ const MAX_IMAGE_PATCHES = 30_000;
 const IMAGE_PATCH_SIZE = 32;
 
 const DOWNLOAD_TIMEOUT_MS = 15_000;
+
+/** Redirects followed per image, each to a destination checked again. */
+const MAX_REDIRECTS = 5;
+
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 // Markdown image pattern: ![alt text](url) or ![](url)
 const IMAGE_REFERENCE_PATTERN = /!\[.*?\]\(([^)]+)\)/g;
@@ -163,6 +171,7 @@ export async function loadImageAttachments({
   baseUrl,
   customFetch,
   logger,
+  lookupHost,
 }: LoadImageAttachmentsParams): Promise<ImageAttachment[]> {
   const urls = [
     ...new Set(
@@ -172,28 +181,40 @@ export async function loadImageAttachments({
     ),
   ].slice(0, MAX_CANDIDATES_PER_ARTICLE);
 
-  const results = await Promise.all(
-    urls.map(async (url) => {
-      try {
-        return await loadImage(url, baseUrl, customFetch);
-      } catch (error) {
-        return error instanceof Error ? error.message : String(error);
-      }
-    }),
-  );
-
   const attachments: ImageAttachment[] = [];
+  let next = 0;
 
-  results.forEach((result, i) => {
-    if (typeof result === 'string') {
-      logger.debug({
-        event: 'insights.images.skip',
-        data: { url: urls[i].slice(0, 200), reason: result },
-      });
-    } else if (attachments.length < MAX_IMAGES_PER_ARTICLE) {
-      attachments.push(result);
-    }
-  });
+  // Only as many candidates as images still needed are downloaded at a time,
+  // so a slow image after the first five usable ones is never waited on.
+  // Articles are analyzed one after another, so that wait would add up.
+  while (attachments.length < MAX_IMAGES_PER_ARTICLE && next < urls.length) {
+    const batch = urls.slice(
+      next,
+      next + MAX_IMAGES_PER_ARTICLE - attachments.length,
+    );
+    next += batch.length;
+
+    const results = await Promise.all(
+      batch.map(async (url) => {
+        try {
+          return await loadImage(url, baseUrl, customFetch, lookupHost);
+        } catch (error) {
+          return error instanceof Error ? error.message : String(error);
+        }
+      }),
+    );
+
+    results.forEach((result, i) => {
+      if (typeof result === 'string') {
+        logger.debug({
+          event: 'insights.images.skip',
+          data: { url: batch[i].slice(0, 200), reason: result },
+        });
+      } else {
+        attachments.push(result);
+      }
+    });
+  }
 
   return attachments;
 }
@@ -202,10 +223,11 @@ async function loadImage(
   url: string,
   referer: string,
   customFetch?: typeof fetch,
+  lookupHost?: HostLookup,
 ): Promise<ImageAttachment> {
   const bytes = url.startsWith('data:')
     ? decodeDataUri(url)
-    : await download(url, referer, customFetch);
+    : await download(url, referer, customFetch, lookupHost);
 
   const mediaType = sniffImageMediaType(bytes);
 
@@ -213,12 +235,10 @@ async function loadImage(
     throw new Error('not a supported image');
   }
 
+  // The upper bound is enforced before the bytes exist: downloads stop reading
+  // past it, and data URIs are measured before decoding.
   if (bytes.byteLength < MIN_IMAGE_BYTES) {
     throw new Error(`too small (${bytes.byteLength} bytes)`);
-  }
-
-  if (bytes.byteLength > MAX_IMAGE_BYTES) {
-    throw new Error(`too large (${bytes.byteLength} bytes)`);
   }
 
   const dimensions = readImageDimensions(bytes, mediaType);
@@ -250,13 +270,25 @@ function decodeDataUri(uri: string): Uint8Array {
     throw new Error('not a base64 data URI');
   }
 
-  return new Uint8Array(Buffer.from(match[1], 'base64'));
+  // Checked on the encoded length, so an oversized image is never decoded.
+  const encoded = match[1];
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+  const size = Math.floor((encoded.length * 3) / 4) - padding;
+
+  if (size > MAX_IMAGE_BYTES) {
+    throw new Error(`too large (${size} bytes)`);
+  }
+
+  const decoded = Buffer.from(encoded, 'base64');
+
+  return new Uint8Array(decoded.buffer, decoded.byteOffset, decoded.byteLength);
 }
 
 async function download(
   url: string,
   referer: string,
   customFetch?: typeof fetch,
+  lookupHost?: HostLookup,
 ): Promise<Uint8Array> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -271,7 +303,7 @@ async function download(
 
   try {
     return await Promise.race([
-      fetchImageBytes(url, referer, controller.signal, customFetch),
+      fetchImageBytes(url, referer, controller.signal, customFetch, lookupHost),
       timeout,
     ]);
   } finally {
@@ -284,17 +316,41 @@ async function fetchImageBytes(
   referer: string,
   signal: AbortSignal,
   customFetch?: typeof fetch,
+  lookupHost?: HostLookup,
 ): Promise<Uint8Array> {
-  const response = await (customFetch ?? fetch)(url, {
-    redirect: 'follow',
-    signal,
-    headers: {
-      'User-Agent': getRandomUserAgent(),
-      Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-      'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-      ...(URL.canParse(referer) ? { Referer: referer } : {}),
-    },
-  });
+  const headers = {
+    'User-Agent': getRandomUserAgent(),
+    Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+    ...(URL.canParse(referer) ? { Referer: referer } : {}),
+  };
+  let target = new URL(url);
+  let response: Response;
+
+  // Redirects are followed here rather than by fetch, so that a public URL
+  // redirecting to an internal address is caught like a direct link to one.
+  for (let redirects = 0; ; redirects++) {
+    await assertPublicUrl(target, lookupHost);
+    response = await (customFetch ?? fetch)(target.href, {
+      redirect: 'manual',
+      signal,
+      headers,
+    });
+
+    const location = response.headers.get('location');
+
+    if (!REDIRECT_STATUSES.has(response.status) || !location) {
+      break;
+    }
+
+    await response.body?.cancel();
+
+    if (redirects === MAX_REDIRECTS) {
+      throw new Error('too many redirects');
+    }
+
+    target = new URL(location, target);
+  }
 
   if (!response.ok) {
     throw new Error(`status ${response.status}`);
