@@ -1,3 +1,5 @@
+import type { LookupFunction } from 'node:net';
+
 import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 
@@ -64,15 +66,33 @@ function isPublicAddress(address: string): boolean {
   );
 }
 
+/** Resolves `hostname` and throws unless every address it points at is public. */
+async function resolvePublicAddresses(
+  hostname: string,
+  lookupHost: HostLookup,
+): Promise<string[]> {
+  const addresses = isIP(hostname) ? [hostname] : await lookupHost(hostname);
+  const blocked = addresses.find((address) => !isPublicAddress(address));
+
+  if (addresses.length === 0 || blocked !== undefined) {
+    throw new Error(`blocked address (${blocked ?? 'none'})`);
+  }
+
+  return addresses;
+}
+
 /**
  * Throws unless `url` is http(s) and its host resolves only to public
  * addresses.
  *
  * Image URLs come from crawled articles, so without this a post could make the
  * host request its own internal services or the cloud metadata endpoint. Every
- * address the name resolves to is checked, not just the first. This does not
- * pin the connection to the checked address, so a DNS answer that changes
- * between this lookup and the request (rebinding) is not covered.
+ * address the name resolves to is checked, not just the first.
+ *
+ * This is a check ahead of the request: the request resolves the name again,
+ * and an answer that changes in between (DNS rebinding) would get past it. The
+ * default download closes that gap with {@link createPublicLookup}; a custom
+ * fetch makes its own connections, and only this check applies to it.
  */
 export async function assertPublicUrl(
   url: URL,
@@ -88,10 +108,43 @@ export async function assertPublicUrl(
     throw new Error(`blocked host (${hostname})`);
   }
 
-  const addresses = isIP(hostname) ? [hostname] : await lookupHost(hostname);
-  const blocked = addresses.find((address) => !isPublicAddress(address));
+  await resolvePublicAddresses(hostname, lookupHost);
+}
 
-  if (addresses.length === 0 || blocked !== undefined) {
-    throw new Error(`blocked address (${blocked ?? 'none'})`);
-  }
+/**
+ * A `lookup` for `http.request` that refuses non-public addresses at connect
+ * time.
+ *
+ * The socket connects to the address this returns, so the address checked and
+ * the address connected to are the same answer, which a check ahead of the
+ * request cannot guarantee. Node skips `lookup` for IP literals, which
+ * {@link assertPublicUrl} checks instead.
+ */
+export function createPublicLookup(
+  lookupHost: HostLookup = lookupAll,
+): LookupFunction {
+  return (hostname, options, callback) => {
+    resolvePublicAddresses(hostname, lookupHost).then(
+      (addresses) => {
+        const wanted =
+          options.family === 4 || options.family === 'IPv4'
+            ? 4
+            : options.family === 6 || options.family === 'IPv6'
+              ? 6
+              : 0;
+        const entries = addresses
+          .map((address) => ({ address, family: isIP(address) }))
+          .filter(({ family }) => wanted === 0 || family === wanted);
+
+        if (entries.length === 0) {
+          callback(new Error(`no IPv${wanted} address for ${hostname}`), '', 0);
+        } else if (options.all) {
+          callback(null, entries);
+        } else {
+          callback(null, entries[0].address, entries[0].family);
+        }
+      },
+      (error: Error) => callback(error, '', 0),
+    );
+  };
 }

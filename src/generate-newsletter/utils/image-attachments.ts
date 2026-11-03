@@ -2,6 +2,7 @@ import type { AppLogger } from '~/models/interfaces';
 
 import { getRandomUserAgent } from './get-html-from-url';
 import { type HostLookup, assertPublicUrl } from './public-address';
+import { createPublicFetch } from './public-fetch';
 
 export type ImageAttachment = {
   data: Uint8Array;
@@ -57,6 +58,9 @@ const DOWNLOAD_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 5;
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+/** Default download fetch, which checks each address as it connects. */
+const publicFetch = createPublicFetch();
 
 // Markdown image pattern: ![alt text](url) or ![](url)
 const IMAGE_REFERENCE_PATTERN = /!\[.*?\]\(([^)]+)\)/g;
@@ -235,7 +239,7 @@ async function loadImage(
     throw new Error('not a supported image');
   }
 
-  // The upper bound is enforced before the bytes exist: downloads stop reading
+  // The upper bound is enforced while the bytes are read: downloads stop
   // past it, and data URIs are measured before decoding.
   if (bytes.byteLength < MIN_IMAGE_BYTES) {
     throw new Error(`too small (${bytes.byteLength} bytes)`);
@@ -326,12 +330,14 @@ async function fetchImageBytes(
   };
   let target = new URL(url);
   let response: Response;
+  const send =
+    customFetch ?? (lookupHost ? createPublicFetch(lookupHost) : publicFetch);
 
   // Redirects are followed here rather than by fetch, so that a public URL
   // redirecting to an internal address is caught like a direct link to one.
   for (let redirects = 0; ; redirects++) {
     await assertPublicUrl(target, lookupHost);
-    response = await (customFetch ?? fetch)(target.href, {
+    response = await send(target.href, {
       redirect: 'manual',
       signal,
       headers,
@@ -374,7 +380,14 @@ async function readBodyWithLimit(
   limit: number,
 ): Promise<Uint8Array> {
   if (!response.body) {
-    return new Uint8Array(await response.arrayBuffer());
+    // A custom fetch may hand back a response without a stream.
+    const bytes = new Uint8Array(await response.arrayBuffer());
+
+    if (bytes.byteLength > limit) {
+      throw new Error(`too large (${bytes.byteLength} bytes)`);
+    }
+
+    return bytes;
   }
 
   const reader = response.body.getReader();

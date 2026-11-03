@@ -11,6 +11,20 @@ import {
 const RESOLVED: Record<string, string[]> = {
   'internal.example.com': ['93.184.216.34', '10.0.0.5'],
 };
+// The default download fetch, replaced so tests make no connections. It is
+// created when the module loads, so the stand-in delegates to `defaultFetch`.
+const defaultFetch: { impl: typeof fetch | null; lookups: unknown[] } = {
+  impl: null,
+  lookups: [],
+};
+vi.mock('./public-fetch', () => ({
+  createPublicFetch:
+    (lookupHost?: unknown) =>
+    (...args: Parameters<typeof fetch>) => {
+      defaultFetch.lookups.push(lookupHost);
+      return defaultFetch.impl!(...args);
+    },
+}));
 vi.mock('node:dns/promises', () => ({
   lookup: async (hostname: string) =>
     (RESOLVED[hostname] ?? ['93.184.216.34']).map((address) => ({
@@ -272,18 +286,31 @@ describe('loadImageAttachments', () => {
     expect(init.headers).not.toHaveProperty('Referer');
   });
 
-  test('uses the global fetch by default', async () => {
-    const globalFetch = vi.fn(async () => imageResponse(png(10, 10)));
-    vi.stubGlobal('fetch', globalFetch);
+  test('downloads through the connect-time checked fetch by default', async () => {
+    const send = vi.fn(async () => imageResponse(png(10, 10)));
+    defaultFetch.impl = send as any;
+    defaultFetch.lookups = [];
+    const lookupHost = async () => ['93.184.216.34'];
 
-    const result = await loadImageAttachments({
-      references: ['https://a.com/1.png'],
-      baseUrl: BASE_URL,
-      logger: makeLogger(),
-    });
+    expect(
+      await loadImageAttachments({
+        references: ['https://a.com/1.png'],
+        baseUrl: BASE_URL,
+        logger: makeLogger(),
+      }),
+    ).toHaveLength(1);
+    expect(
+      await loadImageAttachments({
+        references: ['https://a.com/2.png'],
+        baseUrl: BASE_URL,
+        logger: makeLogger(),
+        lookupHost,
+      }),
+    ).toHaveLength(1);
 
-    expect(result).toHaveLength(1);
-    expect(globalFetch).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(2);
+    // The shared instance, then one built on the given resolver
+    expect(defaultFetch.lookups).toEqual([undefined, lookupHost]);
   });
 
   test('skips unusable images, logs why, and keeps the rest in order', async () => {
@@ -372,6 +399,24 @@ describe('loadImageAttachments', () => {
     });
 
     expect(result).toEqual([{ data: image, mediaType: 'image/png' }]);
+
+    // The size limit holds without a stream too.
+    const logger = makeLogger();
+    const large = png(20, 20, 5_000_001);
+    expect(
+      await loadImageAttachments({
+        references: ['https://a.com/2.png'],
+        baseUrl: BASE_URL,
+        customFetch: (async () => ({
+          ...response,
+          arrayBuffer: async () => large.buffer,
+        })) as any,
+        logger,
+      }),
+    ).toEqual([]);
+    expect(logger.debug.mock.calls[0][0].data.reason).toBe(
+      'too large (5000001 bytes)',
+    );
   });
 
   test('decodes base64 data URIs and drops other data URIs', async () => {

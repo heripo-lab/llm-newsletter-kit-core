@@ -1,4 +1,4 @@
-import { assertPublicUrl } from './public-address';
+import { assertPublicUrl, createPublicLookup } from './public-address';
 
 const resolveTo =
   (...addresses: string[]) =>
@@ -79,5 +79,67 @@ describe('assertPublicUrl', () => {
     await expect(
       assertPublicUrl(new URL('http://localhost.example.invalid/')),
     ).rejects.toThrow();
+  });
+});
+
+describe('createPublicLookup', () => {
+  const run = (
+    lookup: ReturnType<typeof createPublicLookup>,
+    options: Parameters<ReturnType<typeof createPublicLookup>>[1],
+  ) =>
+    new Promise<{ error: Error | null; result: unknown[] }>((resolve) => {
+      lookup('img.example.com', options, (error, ...result) =>
+        resolve({ error, result }),
+      );
+    });
+
+  test('answers with the checked addresses, one or all', async () => {
+    const lookup = createPublicLookup(
+      resolveTo('93.184.216.34', '2606:4700::1111'),
+    );
+
+    expect(await run(lookup, {})).toEqual({
+      error: null,
+      result: ['93.184.216.34', 4],
+    });
+    expect(await run(lookup, { all: true })).toEqual({
+      error: null,
+      result: [
+        [
+          { address: '93.184.216.34', family: 4 },
+          { address: '2606:4700::1111', family: 6 },
+        ],
+      ],
+    });
+    expect(await run(lookup, { family: 6 })).toEqual({
+      error: null,
+      result: ['2606:4700::1111', 6],
+    });
+    expect(await run(lookup, { family: 'IPv4', all: true })).toEqual({
+      error: null,
+      result: [[{ address: '93.184.216.34', family: 4 }]],
+    });
+    expect(await run(lookup, { family: 'IPv6' })).toEqual({
+      error: null,
+      result: ['2606:4700::1111', 6],
+    });
+  });
+
+  test('refuses at connect time when the name now points inside', async () => {
+    // Public when checked ahead of the request, private when connecting
+    let calls = 0;
+    const rebinding = createPublicLookup(async () =>
+      ++calls === 1 ? ['93.184.216.34'] : ['10.0.0.8'],
+    );
+
+    expect((await run(rebinding, {})).error).toBeNull();
+    const { error } = await run(rebinding, {});
+    expect(error?.message).toBe('blocked address (10.0.0.8)');
+  });
+
+  test('fails when no address matches the requested family', async () => {
+    const lookup = createPublicLookup(resolveTo('93.184.216.34'));
+    const { error } = await run(lookup, { family: 6 });
+    expect(error?.message).toBe('no IPv6 address for img.example.com');
   });
 });
