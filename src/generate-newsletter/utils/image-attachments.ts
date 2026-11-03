@@ -358,13 +358,17 @@ async function fetchImageBytes(
     target = new URL(location, target);
   }
 
+  // A body left unread keeps its connection open, so a response given up on
+  // before reading is cancelled first.
   if (!response.ok) {
+    await response.body?.cancel();
     throw new Error(`status ${response.status}`);
   }
 
   const declaredLength = Number(response.headers.get('content-length'));
 
   if (declaredLength > MAX_IMAGE_BYTES) {
+    await response.body?.cancel();
     throw new Error(`too large (${declaredLength} bytes)`);
   }
 

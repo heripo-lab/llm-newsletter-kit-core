@@ -354,6 +354,41 @@ describe('loadImageAttachments', () => {
     ]);
   });
 
+  test('cancels the body of a response it gives up on before reading', async () => {
+    const cancelled: string[] = [];
+    const tracked = (name: string, init: ResponseInit) =>
+      new Response(
+        new ReadableStream({
+          pull: (controller) => controller.enqueue(new Uint8Array(1024)),
+          cancel: () => {
+            cancelled.push(name);
+          },
+        }),
+        init,
+      );
+    const responses: Record<string, () => Response> = {
+      'https://a.com/missing.png': () => tracked('404', { status: 404 }),
+      'https://a.com/huge.png': () =>
+        tracked('content-length', {
+          status: 200,
+          headers: { 'content-length': '6000000' },
+        }),
+    };
+    const logger = makeLogger();
+
+    await loadImageAttachments({
+      references: Object.keys(responses),
+      baseUrl: BASE_URL,
+      customFetch: (async (url: string) => responses[url]()) as any,
+      logger,
+    });
+
+    expect(cancelled.sort()).toEqual(['404', 'content-length']);
+    expect(
+      logger.debug.mock.calls.map(([entry]: any[]) => entry.data.reason),
+    ).toEqual(['status 404', 'too large (6000000 bytes)']);
+  });
+
   test('stops reading a body that grows past the size limit', async () => {
     const chunk = new Uint8Array(1_000_000);
     chunk.set(png(10, 10).subarray(0, 24));
