@@ -25,12 +25,17 @@ export default class DetermineArticleImportance<TaskId> extends LLMQuery<
   number
 > {
   private readonly minimumImportanceScoreRules: MinimumImportanceScoreRule[];
+  // Validated as any number, not `.int()`: some models (Claude among them)
+  // answer with a fraction such as 7.5, and rejecting it would fail the query
+  // and drop the article to the fallback score of 1. `execute` rounds instead.
   private readonly schema = z.object({
     importanceScore: z
       .number()
       .min(1)
       .max(10)
-      .describe('Article importance score (1-10, 10 is most important)'),
+      .describe(
+        'Article importance score as a whole number from 1 to 10 (10 is most important)',
+      ),
   });
 
   private readonly dateService: DateService;
@@ -53,7 +58,8 @@ export default class DetermineArticleImportance<TaskId> extends LLMQuery<
       prompt: this.userPrompt,
     });
 
-    return { result: output.importanceScore, usage };
+    // Within 1–10, so the rounded score stays within it too.
+    return { result: Math.round(output.importanceScore), usage };
   }
 
   private get minPoint() {
