@@ -22,7 +22,7 @@ const USER_AGENTS = [
 ];
 
 // Pick a random User-Agent
-const getRandomUserAgent = () =>
+export const getRandomUserAgent = () =>
   USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

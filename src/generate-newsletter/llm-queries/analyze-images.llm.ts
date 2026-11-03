@@ -6,6 +6,10 @@ import type {
 
 import { z } from 'zod';
 
+import {
+  extractImageReferences,
+  loadImageAttachments,
+} from '../utils/image-attachments';
 import { generateObjectByLLM } from './generate-object-by-llm';
 import {
   LLMQuery,
@@ -15,6 +19,7 @@ import {
 
 type Config<TaskId> = LLMQueryConfig<TaskId> & {
   promptBuilder?: PromptBuilder<AnalyzeImagesPromptContext>;
+  customFetch?: typeof fetch;
 };
 
 type ReturnType = string | null;
@@ -40,16 +45,20 @@ export default class AnalyzeImages<TaskId> extends LLMQuery<
   private readonly schema = z.object({
     imageContext: z
       .string()
+      // Kept neutral: what to include is the prompt's call, and a schema
+      // description cannot be replaced by a custom prompt.
       .describe(
-        'A high-level overview of the general theme, mood, and context conveyed by the images (without specific names, titles, or exact figures from text within images)',
+        'Explanation of the visual information in the images, written as the instructions specify',
       ),
   });
 
   private readonly promptBuilder?: PromptBuilder<AnalyzeImagesPromptContext>;
+  private readonly customFetch?: typeof fetch;
 
   constructor(config: Config<TaskId>) {
     super(config);
     this.promptBuilder = config.promptBuilder;
+    this.customFetch = config.customFetch;
   }
 
   public async execute(): Promise<LLMQueryExecuteResult<ReturnType>> {
@@ -60,7 +69,20 @@ export default class AnalyzeImages<TaskId> extends LLMQuery<
       return { result: null, usage: ZERO_USAGE };
     }
 
-    if (this.imageMessages.length === 0) {
+    const references = extractImageReferences(this.targetArticle.detailContent);
+
+    if (references.length === 0) {
+      return { result: null, usage: ZERO_USAGE };
+    }
+
+    const images = await loadImageAttachments({
+      references,
+      baseUrl: this.targetArticle.targetUrl,
+      customFetch: this.customFetch,
+      logger: this.logger,
+    });
+
+    if (images.length === 0) {
       return { result: null, usage: ZERO_USAGE };
     }
 
@@ -72,7 +94,14 @@ export default class AnalyzeImages<TaskId> extends LLMQuery<
       messages: [
         {
           role: 'user',
-          content: [this.textMessage, ...this.imageMessages],
+          content: [
+            this.textMessage,
+            ...images.map(({ data, mediaType }) => ({
+              type: 'file' as const,
+              mediaType,
+              data,
+            })),
+          ],
         },
       ],
     });
@@ -131,45 +160,6 @@ You are a specialized image analysis expert in: ${this.expertFields.join(', ')}
 - Focus: High-level context and practical insights for industry professionals
 - Integration: Seamlessly merge all extracted information
 - Granularity: Describe the general nature of visual content — avoid quoting specific names, titles, figures, or exact text from images`;
-  }
-
-  private get imageUrls() {
-    // Markdown image pattern: ![alt text](url) or ![](url)
-    // Includes http, https, relative paths, and data URIs
-    const imageRegex = /!\[.*?\]\(([^)]+)\)/g;
-    const urls: string[] = [];
-    let match;
-
-    while (
-      (match = imageRegex.exec(this.targetArticle.detailContent)) !== null
-    ) {
-      const url = match[1].trim();
-
-      // Validate URL format (http, https, relative path, data URI)
-      if (
-        url &&
-        (url.startsWith('http://') ||
-          url.startsWith('https://') ||
-          url.startsWith('//') || // Protocol-relative URL
-          url.startsWith('/') || // Absolute path
-          url.startsWith('./') || // Relative path
-          url.startsWith('../') || // Parent directory relative path
-          url.startsWith('data:image/')) // Data URI
-      ) {
-        urls.push(url);
-      }
-    }
-
-    // Process max 5 images only (to save cost)
-    return urls.slice(0, 5);
-  }
-
-  private get imageMessages() {
-    return this.imageUrls.map((url) => ({
-      type: 'file' as const,
-      mediaType: 'image',
-      data: url,
-    }));
   }
 
   private get textMessage() {

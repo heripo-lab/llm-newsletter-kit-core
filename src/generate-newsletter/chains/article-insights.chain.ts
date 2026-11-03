@@ -338,6 +338,7 @@ export default class ArticleInsightsChain<TaskId> extends PrivateChain<
                 article,
               ),
               promptBuilder: this.promptProvider?.analyzeImages,
+              customFetch: this.provider.analyzeImagesOptions.customFetch,
             });
 
             const { result: imageContextByLlm } = await analyzeImages.execute();

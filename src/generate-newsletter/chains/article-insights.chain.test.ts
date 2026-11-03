@@ -744,6 +744,43 @@ test('extractImageContext handles non-Error rejection without crashing', async (
   expect(out).toEqual([]);
 });
 
+test('extractImageContext passes the analyzeImages customFetch to the query', async () => {
+  const customFetch = vi.fn();
+  (AnalyzeImages as any).mockImplementationOnce(function () {
+    return {
+      execute: vi.fn().mockResolvedValue({ result: 'ctx', usage: {} }),
+    };
+  });
+
+  const chain: any = new (ArticleInsightsChain as any)({
+    provider: {
+      unscoredArticles: [
+        {
+          id: 'f1',
+          title: 'F1',
+          tag1: null,
+          tag2: null,
+          tag3: null,
+          hasAttachedImage: true,
+          imageContextByLlm: null,
+        },
+      ],
+      tags: [],
+      analyzeImagesOptions: { model: {} as any, customFetch },
+    },
+    options: { outputLanguage: 'ko', expertField: 'dev' },
+    logger: { debug: vi.fn(), info: vi.fn(), error: vi.fn() },
+    taskId: 'F-1',
+  });
+
+  const out = await chain.extractImageContext();
+
+  expect(out).toEqual([{ id: 'f1', imageContextByLlm: 'ctx' }]);
+  expect(AnalyzeImages).toHaveBeenCalledWith(
+    expect.objectContaining({ customFetch }),
+  );
+});
+
 test('determineImportance non-Error rejection defaults importanceScore to 1', async () => {
   (DetermineArticleImportance as any).mockImplementationOnce(function () {
     return {

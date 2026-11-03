@@ -73,6 +73,10 @@ describe('DetermineArticleImportance', () => {
     expect(() =>
       callArg.output.schema.parse({ importanceScore: 11 }),
     ).toThrow();
+    // Fractions are accepted here and rounded by execute()
+    expect(() =>
+      callArg.output.schema.parse({ importanceScore: 7.5 }),
+    ).not.toThrow();
 
     // system prompt should include expert field and reflect minPoint=1 branch
     expect(callArg.instructions).toContain('AI');
@@ -248,6 +252,45 @@ describe('DetermineArticleImportance', () => {
       '**Newsletter Publication Date:** 2024-05-15',
     );
     expect(callArg.prompt).toContain('**Article Published Date:** 2024-05-01');
+  });
+});
+
+describe('DetermineArticleImportance - fractional scores', () => {
+  test.each([
+    [7.5, 8],
+    [7.4, 7],
+    [1.2, 1],
+    [9.6, 10],
+  ])('rounds %s to %s', async (returned, expected) => {
+    const query = new DetermineArticleImportance({
+      model: {} as any,
+      logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn() } as any,
+      taskId: 'task-1',
+      loggingExecutor: {
+        executeWithLogging: vi.fn(async (_taskId: any, fn: any) => fn()),
+      } as any,
+      options: {
+        content: { outputLanguage: 'Korean', expertField: 'AI' },
+        llm: { maxRetries: 1 },
+      } as any,
+      targetArticle: {
+        targetUrl: 'https://example.com/a',
+        title: 't',
+        detailContent: 'c',
+      } as any,
+      dateService: {
+        getPublicationISODateString: () => '2024-01-02',
+        getPublicationDisplayDateString: () => '2024-01-02',
+      } as any,
+    });
+    vi.mocked(generateText).mockResolvedValue({
+      output: { importanceScore: returned },
+      usage: {},
+    } as any);
+
+    const { result } = await query.execute();
+
+    expect(result).toBe(expected);
   });
 });
 

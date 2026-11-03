@@ -122,6 +122,15 @@ export interface AnalysisProvider {
      * Model to use. Must be a multimodal model.
      */
     model: LanguageModel;
+
+    /**
+     * Optional custom fetch function used to download article images.
+     * Images are downloaded and sent to the model as bytes; an image that
+     * cannot be downloaded or used is skipped. Supply a fetch that applies the
+     * same proxy or robots.txt policy as crawling. Defaults to the global
+     * `fetch`.
+     */
+    customFetch?: typeof fetch;
   };
 
   /**
