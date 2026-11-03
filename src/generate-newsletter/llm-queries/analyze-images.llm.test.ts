@@ -1,6 +1,15 @@
 import { generateText } from 'ai';
 
+import { loadImageAttachments } from '../utils/image-attachments';
 import AnalyzeImages from './analyze-images.llm';
+
+vi.mock('../utils/image-attachments', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../utils/image-attachments')>()),
+  loadImageAttachments: vi.fn(),
+}));
+
+const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0x01]);
+const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
 
 describe('AnalyzeImages', () => {
   const buildQuery = (overrides: Partial<any> = {}) => {
@@ -23,6 +32,7 @@ describe('AnalyzeImages', () => {
       title: 'Vision Models in the Wild',
       detailContent: 'no images',
       hasAttachedImage: true,
+      targetUrl: 'https://board.example.com/notice/list',
     };
 
     return new AnalyzeImages({
@@ -85,17 +95,30 @@ describe('AnalyzeImages', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
-  test('calls generateText with correct params and returns imageContext', async () => {
+  test('returns null without an LLM request when no image can be loaded', async () => {
+    vi.mocked(loadImageAttachments).mockResolvedValue([]);
+    const query = buildQuery({
+      targetArticle: { detailContent: '![a](https://a.com/x.png)' },
+    });
+
+    const result = await query.execute();
+
+    expect(result.result).toBeNull();
+    expect(result.usage.totalTokens).toBeUndefined();
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  test('sends downloaded image bytes and returns imageContext', async () => {
     const detailContent = [
       'Some intro text.',
-      '![a](http://a.com/img.png)',
-      '![b](https://b.com/i.jpg)',
-      '![c](//c.cdn.com/p.webp)',
-      '![d](/images/d.png)',
-      '![e](./rel/e.jpg)',
-      '![f](../parent/f.png)',
-      '![g](data:image/png;base64,xyz)',
+      '![a](http://a.com/img.png "title")',
+      '![b](/images/b.jpg)',
     ].join('\n');
+    const customFetch = vi.fn();
+    vi.mocked(loadImageAttachments).mockResolvedValue([
+      { data: png, mediaType: 'image/png' },
+      { data: jpeg, mediaType: 'image/jpeg' },
+    ]);
 
     const query = buildQuery({
       targetArticle: {
@@ -103,6 +126,7 @@ describe('AnalyzeImages', () => {
         detailContent,
         hasAttachedImage: true,
       },
+      customFetch,
     });
 
     const expectedContext = 'Comprehensive image-based insights.';
@@ -116,8 +140,16 @@ describe('AnalyzeImages', () => {
 
     expect(result.result).toBe(expectedContext);
     expect(result.usage).toEqual(stubUsage);
-    expect(generateText).toHaveBeenCalledTimes(1);
 
+    // References are resolved against the board URL with the host's fetch
+    expect(loadImageAttachments).toHaveBeenCalledWith({
+      references: ['http://a.com/img.png "title"', '/images/b.jpg'],
+      baseUrl: 'https://board.example.com/notice/list',
+      customFetch,
+      logger: (query as any).logger,
+    });
+
+    expect(generateText).toHaveBeenCalledTimes(1);
     const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
     expect(callArg.model).toBe((query as any).model);
     expect(callArg.maxRetries).toBe(3);
@@ -132,29 +164,15 @@ describe('AnalyzeImages', () => {
     expect(callArg.instructions).toContain('AI');
     expect(callArg.instructions).toContain('Korean');
 
-    // messages: one user message with text + first 5 images only
     expect(callArg.messages).toHaveLength(1);
-    const userMsg = callArg.messages[0];
-    expect(userMsg.role).toBe('user');
-    expect(Array.isArray(userMsg.content)).toBe(true);
-    expect(userMsg.content).toHaveLength(6); // 1 text + 5 images
-
-    const [textPart, ...imageParts] = userMsg.content;
+    const [textPart, ...imageParts] = callArg.messages[0].content;
+    expect(callArg.messages[0].role).toBe('user');
     expect(textPart.type).toBe('text');
     expect(textPart.text).toContain('Vision Models in the Wild');
     expect(textPart.text).toContain('Some intro text.');
-    expect(textPart.text).toContain('AI');
-
-    // Only first five image urls are included, in order
-    expect(imageParts.every((p: any) => p.type === 'file')).toBe(true);
-    expect(imageParts.every((p: any) => p.mediaType === 'image')).toBe(true);
-    const urls = imageParts.map((p: any) => p.data);
-    expect(urls).toEqual([
-      'http://a.com/img.png',
-      'https://b.com/i.jpg',
-      '//c.cdn.com/p.webp',
-      '/images/d.png',
-      './rel/e.jpg',
+    expect(imageParts).toEqual([
+      { type: 'file', mediaType: 'image/png', data: png },
+      { type: 'file', mediaType: 'image/jpeg', data: jpeg },
     ]);
   });
 
@@ -171,6 +189,9 @@ describe('AnalyzeImages', () => {
       },
       promptBuilder: { system: customSystem, user: customUser },
     });
+    vi.mocked(loadImageAttachments).mockResolvedValue([
+      { data: png, mediaType: 'image/png' },
+    ]);
 
     const stubUsage = { inputTokens: 10, outputTokens: 5, totalTokens: 15 };
     vi.mocked(generateText).mockResolvedValue({
@@ -198,39 +219,5 @@ describe('AnalyzeImages', () => {
         outputLanguage: 'Korean',
       }),
     );
-  });
-
-  test('filters out invalid URLs and empty URLs from image extraction', async () => {
-    const detailContent = [
-      '![valid](https://ok.com/img.png)',
-      '![invalid](ftp://bad.com/img.png)',
-      '![empty](   )',
-      '![mailto](mailto:x@y.com)',
-    ].join('\n');
-
-    const query = buildQuery({
-      targetArticle: {
-        title: 'Filter test',
-        detailContent,
-        hasAttachedImage: true,
-      },
-    });
-
-    const stubUsage = { inputTokens: 10, outputTokens: 5, totalTokens: 15 };
-    vi.mocked(generateText).mockResolvedValue({
-      output: { imageContext: 'filtered' },
-      usage: stubUsage,
-    } as any);
-
-    const result = await query.execute();
-
-    expect(result.result).toBe('filtered');
-    const callArg = vi.mocked(generateText).mock.calls[0][0] as any;
-    const imageParts = callArg.messages[0].content.filter(
-      (p: any) => p.type === 'file',
-    );
-    expect(imageParts).toHaveLength(1);
-    expect(imageParts[0].mediaType).toBe('image');
-    expect(imageParts[0].data).toBe('https://ok.com/img.png');
   });
 });
