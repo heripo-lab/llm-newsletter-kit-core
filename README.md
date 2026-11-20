@@ -85,7 +85,7 @@ Install the OpenAI adapter for this example:
 npm i @ai-sdk/openai@^4
 ```
 
-Set `OPENAI_API_KEY` and `OPENAI_MODEL` to your API key and an available model ID that supports structured output. Save the following as `example.ts` in an ESM TypeScript project and run it with your TypeScript runner (for example, `npx tsx example.ts`). This example uses one fictional, preloaded article and in-memory storage; crawling is empty so you can try analysis and generation before connecting a scraper or database. It makes real LLM requests.
+Set `OPENAI_API_KEY` and `OPENAI_MODEL` to your API key and an available model ID that supports structured output. Save the following as `example.ts` in an ESM TypeScript project and run it with Node.js, which strips TypeScript types natively (for example, `node example.ts`). This example uses one fictional, preloaded article and in-memory storage; crawling is empty so you can try analysis and generation before connecting a scraper or database. It makes real LLM requests.
 
 ```ts
 import type {
@@ -581,7 +581,7 @@ Playground scripts let you run individual LLM query classes in isolation — no 
 
 ### Setup
 
-1. From a checkout of this repository, install dependencies (the four provider adapters and `tsx` are already declared):
+1. From a checkout of this repository, install dependencies (the four provider adapters and the `@oxc-node/core` TypeScript loader are already declared):
 
    ```bash
    npm ci

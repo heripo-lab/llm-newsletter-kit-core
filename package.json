@@ -41,12 +41,12 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,md,mdx}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,json,md,mdx}\"",
-    "playground": "tsx",
-    "playground:verify-prompts": "tsx playground/verify-prompts.ts",
-    "playground:classify-tags": "tsx playground/classify-tags.ts",
-    "playground:analyze-images": "tsx playground/analyze-images.ts",
-    "playground:determine-importance": "tsx playground/determine-importance.ts",
-    "playground:generate-newsletter": "tsx playground/generate-newsletter.ts"
+    "playground": "node --import @oxc-node/core/register",
+    "playground:verify-prompts": "node --import @oxc-node/core/register playground/verify-prompts.ts",
+    "playground:classify-tags": "node --import @oxc-node/core/register playground/classify-tags.ts",
+    "playground:analyze-images": "node --import @oxc-node/core/register playground/analyze-images.ts",
+    "playground:determine-importance": "node --import @oxc-node/core/register playground/determine-importance.ts",
+    "playground:generate-newsletter": "node --import @oxc-node/core/register playground/generate-newsletter.ts"
   },
   "author": "kimhongyeon",
   "license": "Apache-2.0",
@@ -65,6 +65,7 @@
     "@ai-sdk/openai": "^4.0.106",
     "@ai-sdk/togetherai": "^3.0.83",
     "@eslint/js": "^10.0.1",
+    "@oxc-node/core": "^1.0.2",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.6",
@@ -74,7 +75,6 @@
     "eslint-plugin-unused-imports": "^4.4.1",
     "prettier": "^3.9.10",
     "tsdown": "0.23.7",
-    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.0.5"
@@ -115,8 +115,7 @@
     "access": "public"
   },
   "allowScripts": {
-    "fsevents@2.3.3": true,
-    "esbuild@0.28.2": true
+    "fsevents@2.3.3": true
   },
   "overrides": {
     "minimatch": "^11.0.3",
