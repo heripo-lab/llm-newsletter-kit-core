@@ -19,7 +19,7 @@ npm test
 
 ### Useful Scripts
 
-- Build: `npm run build` (Rollup, generates ESM/d.ts in dist)
+- Build: `npm run build` (tsdown, generates ESM/d.ts in dist)
 - Test: `npm run test` / `npm run test:watch` / `npm run test:coverage`
 - Coverage (CI mode): `npm run test:ci`
 - Lint: `npm run lint` / auto fix `npm run lint:fix`
