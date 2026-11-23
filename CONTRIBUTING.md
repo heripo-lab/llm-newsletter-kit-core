@@ -161,8 +161,12 @@ git push origin main
 
 ## Release (Maintainers)
 
-- Version/Publish: `npm version {patch|minor|major}` → `npm publish --access public`
-  - Scripts: `release:*` (auto build via `prepublishOnly`/`preversion`), `postversion` pushes tags
+Releases run in GitHub Actions (`.github/workflows/release.yml`). Locally you only push a trigger tag; no build or npm token is needed.
+
+- Trigger: `npm run release:{patch|minor|major}` on an up-to-date, clean `main` (untracked files also block it). The script checks `HEAD == origin/main` and pushes `core-release-<level>-<UTC YYYYMMDDHHmmss>`.
+- Workflow: verifies the tag commit is the latest `main` → `npm version <level>` → build → atomically pushes the version commit and `vX.Y.Z` tag to `main` with the `heripo-release-bot` GitHub App token → `npm publish` via npm Trusted Publishing (OIDC, provenance included).
+- Recovery: if only publishing failed and `main` has not moved, `npm run release` (level `none`) republishes the current version. It aborts unless `vX.Y.Z` points at the current `HEAD`; otherwise release a new patch.
+- Only organization admins can create `core-release-*` tags (tag ruleset).
 - Distribution artifacts: `dist` directory (exports: ESM/types)
 
 ## CI
