@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 // CI-only release script, run by .github/workflows/release.yml.
-// Order: bump → build → atomic push (commit + version tag) → npm publish.
-// Level `none` republishes the current version without bumping; it is the
-// recovery path when only the publish step failed.
+// Order: bump → build → atomic push (commit + version tag) → npm stage publish.
+// The trusted publisher is configured stage-only, so this script never puts a
+// version on the registry by itself: it stages one, and a maintainer approves
+// it with 2FA. Approval cannot be automated (npm requires proof of presence).
+// Level `none` re-stages the current version without bumping; it is the
+// recovery path when only the staging step failed. A version already pending
+// approval must be rejected first, because npm refuses to stage a version that
+// already exists as a staged version.
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 
 const LEVELS = ['none', 'patch', 'minor', 'major'];
 
@@ -23,6 +28,15 @@ function fail(message) {
 
 function readVersion() {
   return JSON.parse(readFileSync('package.json', 'utf8')).version;
+}
+
+// The run ends with the version staged, not published, so say what is left.
+function reportStaged(version) {
+  const message = `Staged ${version}. Approve it with 2FA to publish: \`npm stage list\` then \`npm stage approve <stage-id>\`, or the Staged Packages tab on npmjs.com.`;
+  console.log(message);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n`);
+  }
 }
 
 const level = process.argv[2];
@@ -50,8 +64,8 @@ if (level === 'none') {
   }
 
   run('npm', ['run', 'build']);
-  run('npm', ['publish', '--access', 'public', '--ignore-scripts']);
-  console.log(`Republished ${version}.`);
+  run('npm', ['stage', 'publish', '--access', 'public', '--ignore-scripts']);
+  reportStaged(version);
   process.exit(0);
 }
 
@@ -73,5 +87,5 @@ run('git', [
 ]);
 
 // Already built above; skip prepublishOnly to avoid a second build.
-run('npm', ['publish', '--access', 'public', '--ignore-scripts']);
-console.log(`Released ${version}.`);
+run('npm', ['stage', 'publish', '--access', 'public', '--ignore-scripts']);
+reportStaged(version);

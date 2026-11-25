@@ -164,8 +164,10 @@ git push origin main
 Releases run in GitHub Actions (`.github/workflows/release.yml`). Locally you only push a trigger tag; no build or npm token is needed.
 
 - Trigger: `npm run release:{patch|minor|major}` on an up-to-date, clean `main` (untracked files also block it). The script checks `HEAD == origin/main` and pushes `core-release-<level>-<UTC YYYYMMDDHHmmss>`.
-- Workflow: verifies the tag commit is the latest `main` → `npm version <level>` → build → atomically pushes the version commit and `vX.Y.Z` tag to `main` with the `heripo-release-bot` GitHub App token → `npm publish` via npm Trusted Publishing (OIDC, provenance included).
-- Recovery: if only publishing failed and `main` has not moved, `npm run release` (level `none`) republishes the current version. It aborts unless `vX.Y.Z` points at the current `HEAD`; otherwise release a new patch.
+- Workflow: verifies the tag commit is the latest `main` → `npm version <level>` → build → atomically pushes the version commit and `vX.Y.Z` tag to `main` with the `heripo-release-bot` GitHub App token → `npm stage publish` via npm Trusted Publishing (OIDC, provenance included) → adds the version to the repository's Releases page.
+- **Approval: a successful run leaves the version staged, not published.** The trusted publisher is configured stage-only, so a maintainer finishes the release with `npm stage list`, then `npm stage approve <stage-id>` — or Approve under Staged Packages in their npm account settings. npm requires proof of presence for approval and rejects OIDC tokens, so this step cannot be automated; it is the point of the arrangement rather than a gap. Until it happens, `main` carrying a version the registry does not have is expected.
+- Recovery: if only staging failed and `main` has not moved, `npm run release` (level `none`) re-stages the current version. It aborts unless `vX.Y.Z` points at the current `HEAD`; otherwise release a new patch. A version still pending approval must be approved or rejected first, since npm refuses to stage a version that already exists as a staged version.
+- The Releases entry is the one step that never fails the run: by then the commit, the tag and the staged version are all in place, so a failure is reported to the job summary — with the recovery command — rather than marking a finished release as failed.
 - Only organization admins can create `core-release-*` tags (tag ruleset).
 - Distribution artifacts: `dist` directory (exports: ESM/types)
 
