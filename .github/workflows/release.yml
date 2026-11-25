@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'core-release-*'
+
+concurrency:
+  group: core-release
+  # By default only one pending run is kept and a newer trigger silently
+  # cancels it. `queue: max` keeps every trigger queued instead.
+  queue: max
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # npm Trusted Publishing (OIDC)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse release level
+        id: level
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^core-release-(none|patch|minor|major)-[0-9]{14}$ ]]; then
+            echo "ERROR: Invalid release tag: $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          echo "level=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release bot token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Check tag points to latest main
+        run: |
+          tag_sha="$(git rev-parse "refs/tags/$GITHUB_REF_NAME^{commit}")"
+          main_sha="$(git rev-parse HEAD)"
+          if [ "$tag_sha" != "$main_sha" ]; then
+            echo "ERROR: Tag commit ($tag_sha) is not the latest main commit ($main_sha)." >&2
+            exit 1
+          fi
+
+      - name: Configure git identity
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          user_id="$(gh api "/users/${APP_SLUG}[bot]" --jq .id)"
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: npm
+
+      # Staged publishing needs npm >= 11.15.0; Trusted Publishing alone needs
+      # only 11.5.1, so this gate is the higher of the two on purpose.
+      - name: Ensure npm supports staged publishing
+        run: |
+          npm_version="$(npm -v)"
+          echo "npm $npm_version"
+          if ! node -e 'const [a,b]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&b>=15)?0:1)' "$npm_version"; then
+            npm install -g npm@latest
+            npm -v
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump, build and stage
+        run: node scripts/publish.mjs "${{ steps.level.outputs.level }}"
+
+      # The version tag is pushed by publish.mjs; this turns it into an entry on
+      # the repository's Releases page. It runs after a successful stage publish,
+      # so the entry appears before the npm version is approved — the tag and the
+      # code it points at are already on main at that moment.
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; leaving it unchanged." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Pin the notes baseline to the previous version tag. The gh manual does
+          # not say what baseline it picks when no prior Release exists, and this
+          # repository has every version as a tag but no Releases at all, so the
+          # first run would otherwise generate notes over an unknown range. The
+          # baseline follows the commit history rather than version ordering, so
+          # a stray higher tag elsewhere cannot become the starting point.
+          previous="$(git describe --tags --abbrev=0 --match 'v*' "$tag^" 2>/dev/null || true)"
+          args=(--title "$tag" --generate-notes --verify-tag)
+          if [ -n "$previous" ]; then
+            args+=(--notes-start-tag "$previous")
+            echo "Generating notes since $previous."
+          fi
+
+          # A missing Release entry does not undo a release: the commit, the tag
+          # and the staged npm version are all in place by now. Failing the job
+          # here would mark a finished release as failed, and the usual answer to
+          # that — re-triggering — bumps the version again, while level `none`
+          # cannot recover either because the version is already staged. So the
+          # gap is reported and the run is allowed to finish.
+          if gh release create "$tag" "${args[@]}"; then
+            echo "Created release $tag." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### :warning: Release $tag has no Releases entry"
+              echo
+              echo "\`gh release create\` failed. Only the Releases entry is missing: the commit, the tag and the staged npm version are all in place, and the version still needs 2FA approval."
+              echo "Add the entry with:"
+              echo
+              echo "\`\`\`"
+              echo "gh release create $tag --title $tag --generate-notes --verify-tag${previous:+ --notes-start-tag $previous}"
+              echo "\`\`\`"
+              echo
+              echo "Or on the Releases page: Draft a new release, choose the existing tag \`$tag\`, then Generate release notes."
+              echo "Do not re-run this workflow or push another trigger tag: that would release a new version."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
