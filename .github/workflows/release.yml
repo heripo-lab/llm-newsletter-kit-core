@@ -82,7 +82,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Bump, build and publish
+      - name: Bump, build and stage
         run: node scripts/publish.mjs "${{ steps.level.outputs.level }}"
 
       # The version tag is pushed by publish.mjs; this turns it into an entry on
@@ -122,9 +122,9 @@ jobs:
             echo "Created release $tag." >> "$GITHUB_STEP_SUMMARY"
           else
             {
-              echo "### :warning: Release $tag was published but has no Releases entry"
+              echo "### :warning: Release $tag has no Releases entry"
               echo
-              echo "\`gh release create\` failed. The release itself is complete."
+              echo "\`gh release create\` failed. Only the Releases entry is missing: the commit, the tag and the staged npm version are all in place, and the version still needs 2FA approval."
               echo "Add the entry with:"
               echo
               echo "\`\`\`"
